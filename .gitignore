@@ -1,2 +1,5 @@
 .venv
 data
+__pycache__
+data
+scratch
