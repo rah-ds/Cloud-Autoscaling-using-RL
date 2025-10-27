@@ -82,3 +82,6 @@ TODO: add in makefile
 TODO: add in pre commit hooks
 TODO: add in branch protection rules
 
+## TODO:
+
+try and make the env an open gym function?
