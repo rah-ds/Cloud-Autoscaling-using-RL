@@ -56,11 +56,16 @@ possibility of testing against more realistic traces.
   * May be used to test how well the RL agent generalizes beyond
     synthetic data
 
+  * use some established baselines like established baselines
+
+
+
 ## Important Links
 
 * The [class Canvas](https://canvas.its.virginia.edu/courses/159418/modules)
 * The class repo can be found [here](https://github.com/UVADS/reinforcement_learning_online_msds/commits/main/)
 * TODO: add in Rivanna start up info (could be needed for long running experiments)
+* OVERLEAF for the read out report [link here](https://www.overleaf.com/7158248618vhwgyscspwqx#7d2e57)
 
 ## Authors
 

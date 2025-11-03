@@ -1,0 +1,34 @@
+{
+  "fixed5": {
+    "total_reward": -8935.564833333334,
+    "total_reward_std": 3028.2146183513214,
+    "total_unmet": 8667.601,
+    "total_unmet_std": 3025.2180319439785,
+    "mean_servers": 5.0,
+    "mean_servers_std": 0.0
+  },
+  "reactive": {
+    "total_reward": -7560.078266666703,
+    "total_reward_std": 2139.6630305138565,
+    "total_unmet": 5433.044333333333,
+    "total_unmet_std": 2035.5104529416094,
+    "mean_servers": 3.449762,
+    "mean_servers_std": 0.4253415247649039
+  },
+  "hyst": {
+    "total_reward": -7641.4686166666825,
+    "total_reward_std": 1997.701727754533,
+    "total_unmet": 5912.0485,
+    "total_unmet_std": 1946.1180314019368,
+    "mean_servers": 4.097069,
+    "mean_servers_std": 0.5007500499973349
+  },
+  "oracle": {
+    "total_reward": -7575.261450000036,
+    "total_reward_std": 2070.7983494373143,
+    "total_unmet": 5447.881666666667,
+    "total_unmet_std": 1969.0550771873352,
+    "mean_servers": 3.457245666666666,
+    "mean_servers_std": 0.4153833036861523
+  }
+}
