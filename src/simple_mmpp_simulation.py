@@ -1,7 +1,8 @@
-import numpy as np
+from typing import List, Optional, Tuple
+
 import matplotlib.pyplot as plt
+import numpy as np
 import seaborn as sns
-from typing import List, Tuple, Optional
 
 sns.set(style="whitegrid")
 plt.rcParams["figure.figsize"] = (12, 6)
