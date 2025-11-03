@@ -59,7 +59,7 @@ def simulate_mmpp(
             print(f"t={t}, state={state}, lambda={lam}, arrivals={count}")
 
         # transition to next state
-        state = np.random.choice([0, 1, 2], p=transitions[state])
+        state = np.random.choice(len(rates), p=transitions[state])
 
     return arrivals, states_
 
