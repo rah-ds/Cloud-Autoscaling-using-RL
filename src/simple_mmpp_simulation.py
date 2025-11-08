@@ -22,8 +22,8 @@ transitions: List[List[float]] = [
 
 
 def simulate_mmpp(
-    rates: List[float] = rates,
-    transitions: List[List[float]] = transitions,
+    rates: Optional[List[float]] = None,
+    transitions: Optional[List[List[float]]] = None,
     duration: int = 1,
     print_: bool = False,
     seed: Optional[int] = None,
@@ -41,6 +41,16 @@ def simulate_mmpp(
         arrivals: list of ints, number of arrivals at each time step.
         states: list of ints, state index at each time step (before transition).
     """
+    # Use module-level defaults if not provided
+    if rates is None:
+        rates = [5, 50, 200]
+    if transitions is None:
+        transitions = [
+            [0.90, 0.09, 0.01],
+            [0.15, 0.80, 0.05],
+            [0.05, 0.15, 0.80],
+        ]
+    
     if seed is not None:
         np.random.seed(seed)
 
