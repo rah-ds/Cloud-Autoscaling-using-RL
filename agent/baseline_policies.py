@@ -3,8 +3,6 @@ Baseline Policies for Cloud Autoscaling
 """
 
 import numpy as np
-from typing import Tuple
-
 
 class BaselinePolicy:
     """Base class for baseline policies."""

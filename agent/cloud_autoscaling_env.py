@@ -6,7 +6,6 @@ A Gymnasium-compatible environment for cloud resource autoscaling simulation.
 import gymnasium as gym
 from gymnasium import spaces
 import numpy as np
-import pandas as pd
 from typing import Tuple, Dict, Optional, Any
 
 
