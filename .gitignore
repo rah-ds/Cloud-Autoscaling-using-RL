@@ -1,2 +1,19 @@
 .venv
 data
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Virtual environments
+venv/
+.env/
+.venv/
+
+# Data (adjust as needed)
+data/raw/
+data/interim/
