@@ -6,6 +6,7 @@ import torch.optim as optim
 import random
 from collections import deque
 import pandas as pd
+from DQN_Utils import QNetwork
 
 
 # --- DQNAgent Definition
