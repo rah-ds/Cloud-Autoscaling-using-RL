@@ -15,7 +15,6 @@ class DoubleDQNAgent:
         self,
         observation_space_shape,
         action_space_size,
-        device,
         seed,
         buffer_size=int(1e5),
         batch_size=64,
