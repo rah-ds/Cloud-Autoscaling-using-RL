@@ -7,36 +7,38 @@ from dataclasses import dataclass
 # Define a data class to hold environment configuration parameters
 @dataclass
 class AutoScalingEnvConfig:
-    initial_capacity: int = 10 # The starting number of machines in the cluster.
-    target_utilization: float = 0.6 # The desired average CPU utilization for the cluster.
-    sla_threshold: float = 0.8 # The utilization threshold above which SLA violations occur.
-    cost_per_machine_per_minute: float = 0.002 # The cost of running one machine for one minute.
-    sla_penalty_weight: float = 10.0 # The penalty applied for exceeding the SLA threshold.
-    min_capacity: int = 1 # The minimum number of machines the cluster can scale down to.
-    max_capacity: int = 50 # The maximum number of machines the cluster can scale up to.
-    cooldown_period: int = 5 # The number of steps the agent must wait after a scaling action before taking another.
+    initial_capacity: int = 10          # The starting number of machines in the cluster.
+    target_utilization: float = 0.6     # The desired average CPU utilization for the cluster.
+    sla_threshold: float = 0.8          # The utilization threshold above which SLA violations occur.
+    cost_per_machine_per_minute: float = 0.002  # The cost of running one machine for one minute.
+    sla_penalty_weight: float = 10.0    # The penalty applied for exceeding the SLA threshold.
+    min_capacity: int = 1               # The minimum number of machines the cluster can scale down to.
+    max_capacity: int = 50              # The maximum number of machines the cluster can scale up to.
+    cooldown_period: int = 5            # Steps the agent must wait after a scaling action.
 
 
-# Define the RL Environment
 class AutoScalingEnv(gym.Env):
-    def __init__(self, usage_dataframe: pd.DataFrame, config: AutoScalingEnvConfig = AutoScalingEnvConfig()):
+    metadata = {"render_modes": ["human"]}
+
+    def __init__(self, usage_dataframe: pd.DataFrame,
+                 config: AutoScalingEnvConfig = AutoScalingEnvConfig()):
         """
         Initializes the AutoScalingEnv reinforcement learning environment.
 
         Args:
-            usage_dataframe (pd.DataFrame): DataFrame containing time-series usage data.
+            usage_dataframe (pd.DataFrame): DataFrame containing time-series usage data
+                                            with columns ['avg_cpu', 'avg_mem', 'active_machines'].
             config (AutoScalingEnvConfig): Configuration object for the environment.
         """
-        super(AutoScalingEnv, self).__init__()
+        super().__init__()
 
-        self.df_usage = usage_dataframe
+        self.df_usage = usage_dataframe.reset_index(drop=True)
         self.current_step = 0
-        self.max_steps = len(self.df_usage) - 1
+        # Use the full length as the number of steps; indices go 0..len-1
+        self.max_steps = len(self.df_usage)
 
         # Store configuration
         self.config = config
-
-        # Simulation parameters, initialized from config
         self.initial_capacity = self.config.initial_capacity
         self.current_capacity = self.initial_capacity
         self.target_utilization = self.config.target_utilization
@@ -46,149 +48,147 @@ class AutoScalingEnv(gym.Env):
         self.min_capacity = self.config.min_capacity
         self.max_capacity = self.config.max_capacity
         self.cooldown_period = self.config.cooldown_period
-        self.cooldown = 0 # To implement cooldown between scaling actions
+        self.cooldown = 0  # cooldown counter
 
-
-        # Define action and observation space
         # Action: 0 (scale down), 1 (hold), 2 (scale up)
         self.action_space = spaces.Discrete(3)
 
         # Observation: [avg_cpu, avg_mem, current_capacity]
-        # We'll add lagged values and trends later if needed.
-        # The upper bound is set to infinity as these values can vary widely.
-        self.observation_space = spaces.Box(low=0, high=np.inf, shape=(3,), dtype=np.float32)
+        # Bound CPU/mem from 0 to +inf, capacity between min and max capacity.
+        self.observation_space = spaces.Box(
+            low=np.array([0.0, 0.0, float(self.min_capacity)], dtype=np.float32),
+            high=np.array([np.inf, np.inf, float(self.max_capacity)], dtype=np.float32),
+            dtype=np.float32
+        )
 
-        # Define initial state
         self.state = self._get_obs()
 
-    def _get_obs(self) -> np.ndarray | None:
+    def _get_obs(self) -> np.ndarray:
         """
         Gets the current observation of the environment.
 
         Returns:
-            np.ndarray | None: The observation array or None if the episode is done.
+            np.ndarray: The observation array.
         """
-        if self.current_step > self.max_steps:
-            return None
-
-        # Get the current row of usage data
-        row = self.df_usage.iloc[self.current_step]
-        # Observation includes current workload (avg_cpu, avg_mem) and the agent's managed capacity
-        obs = np.array([row['avg_cpu'], row['avg_mem'], self.current_capacity], dtype=np.float32)
+        # Clamp step to valid range to avoid IndexError
+        idx = min(self.current_step, self.max_steps - 1)
+        row = self.df_usage.iloc[idx]
+        obs = np.array([row["avg_cpu"], row["avg_mem"], self.current_capacity],
+                       dtype=np.float32)
         return obs
 
-
-    def step(self, action: int) -> tuple[np.ndarray | None, float, bool, dict]:
+    def step(self, action: int) -> tuple[np.ndarray, float, bool, bool, dict]:
         """
         Takes a step in the environment based on the agent's action.
 
         Args:
-            action (int): The action taken by the agent (0: scale down, 1: hold, 2: scale up).
+            action (int): 0 (scale down), 1 (hold), 2 (scale up).
 
         Returns:
-            tuple: A tuple containing the next observation, reward, done flag, and info dictionary.
+            observation (np.ndarray): Next observation.
+            reward (float): Scalar reward.
+            terminated (bool): Episode ended because task is solved/failed.
+            truncated (bool): Episode ended because of time limit or external constraint.
+            info (dict): Additional diagnostic info.
         """
-        # Apply action based on cooldown
+        # Ensure valid action
+        assert self.action_space.contains(action), f"Invalid action {action}"
+
+        # Use usage data for the *current* time step to compute reward
+        idx = min(self.current_step, self.max_steps - 1)
+        row = self.df_usage.iloc[idx]
+
+        # Apply action with cooldown
         if self.cooldown == 0:
-            if action == 2: # Scale up
+            if action == 2:  # Scale up
                 self.current_capacity = min(self.current_capacity + 1, self.max_capacity)
-                self.cooldown = self.cooldown_period # Reset cooldown
-            elif action == 0: # Scale down
-                 self.current_capacity = max(self.current_capacity - 1, self.min_capacity)
-                 self.cooldown = self.cooldown_period # Reset cooldown
-            # Action 1 is hold, capacity doesn't change
+                self.cooldown = self.cooldown_period
+            elif action == 0:  # Scale down
+                self.current_capacity = max(self.current_capacity - 1, self.min_capacity)
+                self.cooldown = self.cooldown_period
+            # action == 1 is "hold", do nothing
         else:
             # Decrement cooldown if not zero
-            self.cooldown -= 1
+            self.cooldown = max(self.cooldown - 1, 0)
 
-        # Advance the simulation step
+        # Compute utilization & reward components for this step
+        estimated_total_cpu_load = row["avg_cpu"] * row["active_machines"]
+        utilization = (
+            estimated_total_cpu_load / self.current_capacity
+            if self.current_capacity > 0 else 0.0
+        )
+
+        cost_penalty = self.current_capacity * self.cost_per_machine_per_minute
+
+        sla_penalty = 0.0
+        if utilization > self.sla_threshold:
+            sla_penalty = (utilization - self.sla_threshold) * self.sla_penalty_weight
+
+        # Negative absolute deviation from target (closer to target => closer to 0)
+        util_deviation_penalty = -abs(utilization - self.target_utilization)
+
+        reward = -cost_penalty - sla_penalty + util_deviation_penalty
+
+        # Advance time
         self.current_step += 1
 
-        # Check if episode is done
-        done = self.current_step > self.max_steps
+        # Termination logic: we've consumed the dataset
+        terminated = self.current_step >= self.max_steps
+        truncated = False  # you can set this using a separate time limit if desired
 
-        # Calculate reward if not done
-        reward = 0.0
-        utilization = 0.0 # Initialize utilization
-        estimated_total_cpu_load = 0.0
+        # Next observation (Gymnasium requires an obs even when terminated/truncated)
+        if not terminated:
+            self.state = self._get_obs()
+        else:
+            # Reuse the last real observation but with the *current* capacity
+            self.state = np.array(
+                [row["avg_cpu"], row["avg_mem"], self.current_capacity],
+                dtype=np.float32
+            )
 
-        if not done:
-            # Get data for the step *before* moving to the next
-            row = self.df_usage.iloc[self.current_step - 1]
-            # Assuming avg_cpu is a fraction, estimate total CPU load based on actual active machines
-            estimated_total_cpu_load = row['avg_cpu'] * row['active_machines']
-
-            # Calculate utilization based on simulated capacity
-            utilization = estimated_total_cpu_load / self.current_capacity if self.current_capacity > 0 else 0.0
-
-            # Reward components
-            # Penalize cost based on the number of active machines managed by the agent
-            cost_penalty = self.current_capacity * self.cost_per_machine_per_minute
-
-            # Penalize high utilization (SLA violation)
-            sla_penalty = 0.0
-            if utilization > self.sla_threshold:
-                sla_penalty = (utilization - self.sla_threshold) * self.sla_penalty_weight
-
-            # Penalize deviation from target utilization
-            util_deviation_penalty = -abs(utilization - self.target_utilization)
-
-            # Total reward (example combination)
-            # We want to minimize cost and SLA violations, and ideally stay near target utilization
-            # Using negative rewards for penalties and positive for goals (deviation is a penalty here).
-            reward = -cost_penalty - sla_penalty + util_deviation_penalty
-
-        # Get next observation
-        next_obs = self._get_obs() if not done else None
-
-        # Additional info (optional)
         info = {
-            'current_capacity': self.current_capacity,
-            'utilization': utilization, # Report utilization for the step
-            'estimated_total_cpu_load': estimated_total_cpu_load,
-            'reward_components': { # Optional: include components for debugging
-                'cost_penalty': -cost_penalty,
-                'sla_penalty': -sla_penalty,
-                'util_deviation_penalty': util_deviation_penalty
+            "current_capacity": self.current_capacity,
+            "utilization": utilization,
+            "estimated_total_cpu_load": estimated_total_cpu_load,
+            "reward_components": {
+                "cost_penalty": -cost_penalty,
+                "sla_penalty": -sla_penalty,
+                "util_deviation_penalty": util_deviation_penalty
             }
         }
 
-        # In Gymnasium 0.28+, the step method returns (observation, reward, terminated, truncated, info)
-        # We need to return 'terminated' and 'truncated' flags. In this simple env, 'done' covers both.
-        terminated = done
-        truncated = False # Or set to True based on other conditions if applicable (e.g., time limit)
+        return self.state, reward, terminated, truncated, info
 
-        return next_obs, reward, terminated, truncated, info
-
-
-    def reset(self, seed: int | None = None, options: dict | None = None) -> tuple[np.ndarray, dict]:
+    def reset(self, seed: int | None = None,
+              options: dict | None = None) -> tuple[np.ndarray, dict]:
         """
         Resets the environment to its initial state.
 
         Args:
-            seed (int | None): An optional seed for the random number generator.
-            options (dict | None): Additional options for resetting.
+            seed (int | None): Optional RNG seed.
+            options (dict | None): Additional options.
 
         Returns:
-            tuple: A tuple containing the initial observation and an info dictionary.
+            observation (np.ndarray): Initial observation.
+            info (dict): Additional info.
         """
-        super().reset(seed=seed) # Call the superclass reset with seed
+        super().reset(seed=seed)
 
         self.current_step = 0
         self.current_capacity = self.initial_capacity
         self.cooldown = 0
         self.state = self._get_obs()
 
-        # Return initial observation and info dictionary (optional)
-        info = {
-            'initial_capacity': self.initial_capacity
-        }
+        info = {"initial_capacity": self.initial_capacity}
         return self.state, info
 
-    def render(self, mode='human'):
-        # Implement rendering if needed
-        pass
+    def render(self, mode: str = "human"):
+        # You can add plotting or logging here if you want.
+        print(
+            f"Step: {self.current_step}, "
+            f"Capacity: {self.current_capacity}"
+        )
 
-    def close (self):
+    def close(self):
         # Clean up resources if needed
         pass
