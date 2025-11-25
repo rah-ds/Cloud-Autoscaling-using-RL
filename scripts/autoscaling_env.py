@@ -27,7 +27,7 @@ class AutoScalingEnv(gym.Env):
 
         Args:
             usage_dataframe (pd.DataFrame): DataFrame containing time-series usage data
-                                            with columns ['avg_cpu', 'avg_mem', 'active_machines'].
+                                            with columns ['time_window', 'avg_cpu'].
             config (AutoScalingEnvConfig): Configuration object for the environment.
         """
         super().__init__()
@@ -53,13 +53,14 @@ class AutoScalingEnv(gym.Env):
         # Action: 0 (scale down), 1 (hold), 2 (scale up)
         self.action_space = spaces.Discrete(3)
 
-        # Observation: [avg_cpu, avg_mem, current_capacity]
+        # Observation: [avg_cpu]
         # Bound CPU/mem from 0 to +inf, capacity between min and max capacity.
         self.observation_space = spaces.Box(
-            low=np.array([0.0, 0.0, float(self.min_capacity)], dtype=np.float32),
-            high=np.array([np.inf, np.inf, float(self.max_capacity)], dtype=np.float32),
-            dtype=np.float32
-        )
+        low=np.array([0.0, float(self.min_capacity)], dtype=np.float32),
+        high=np.array([np.inf, float(self.max_capacity)], dtype=np.float32),
+        dtype=np.float32
+)
+
 
         self.state = self._get_obs()
 
@@ -73,7 +74,7 @@ class AutoScalingEnv(gym.Env):
         # Clamp step to valid range to avoid IndexError
         idx = min(self.current_step, self.max_steps - 1)
         row = self.df_usage.iloc[idx]
-        obs = np.array([row["avg_cpu"], row["avg_mem"], self.current_capacity],
+        obs = np.array([row["avg_cpu"], self.current_capacity],
                        dtype=np.float32)
         return obs
 
@@ -111,12 +112,13 @@ class AutoScalingEnv(gym.Env):
             # Decrement cooldown if not zero
             self.cooldown = max(self.cooldown - 1, 0)
 
-        # Compute utilization & reward components for this step
-        estimated_total_cpu_load = row["avg_cpu"] * row["active_machines"]
+
+        demand_cpu = row["avg_cpu"]
         utilization = (
-            estimated_total_cpu_load / self.current_capacity
+            demand_cpu / self.current_capacity
             if self.current_capacity > 0 else 0.0
         )
+        # ------------------------------------------------------------
 
         cost_penalty = self.current_capacity * self.cost_per_machine_per_minute
 
@@ -142,14 +144,14 @@ class AutoScalingEnv(gym.Env):
         else:
             # Reuse the last real observation but with the *current* capacity
             self.state = np.array(
-                [row["avg_cpu"], row["avg_mem"], self.current_capacity],
+                [row["avg_cpu"], self.current_capacity],
                 dtype=np.float32
             )
 
         info = {
             "current_capacity": self.current_capacity,
             "utilization": utilization,
-            "estimated_total_cpu_load": estimated_total_cpu_load,
+            "demand_cpu": demand_cpu,
             "reward_components": {
                 "cost_penalty": -cost_penalty,
                 "sla_penalty": -sla_penalty,
