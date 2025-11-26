@@ -173,9 +173,6 @@ class AutoScalingEnv(gym.Env):
 }
 
 
-
-        }
-
         return self.state, reward, terminated, truncated, info
 
     def reset(self, seed: int | None = None,
