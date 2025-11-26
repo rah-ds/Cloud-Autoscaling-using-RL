@@ -18,12 +18,13 @@ class DQNAgent:
         self.gamma = gamma
         self.tau = tau
         self.update_every = update_every
+        self.device = device
         self.qnetwork_local = QNetwork(observation_space_shape, action_space_size).to(self.device)
         self.qnetwork_target = QNetwork(observation_space_shape, action_space_size).to(self.device)
         self.optimizer = optim.Adam(self.qnetwork_local.parameters(), lr=lr)
         self.memory = ReplayBuffer(buffer_size, batch_size)
         self.t_step = 0
-        self.device = device
+        
 
     def step(self, state, action, reward, next_state, done):
         self.memory.add(state, action, reward, next_state, done)
