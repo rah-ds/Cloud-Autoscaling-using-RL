@@ -11,18 +11,19 @@ from DQN_Utils import QNetwork
 
 # --- DQNAgent Definition
 class DQNAgent:
-    def __init__(self, observation_space_shape, action_space_size, seed, buffer_size=int(1e5), batch_size=64, gamma=0.99, lr=5e-4, tau=1e-3, update_every=4):
+    def __init__(self, observation_space_shape, action_space_size, seed, device, buffer_size=int(1e5), batch_size=64, gamma=0.99, lr=5e-4, tau=1e-3, update_every=4):
         self.observation_space_shape = observation_space_shape
         self.action_space_size = action_space_size
         self.seed = random.seed(seed)
         self.gamma = gamma
         self.tau = tau
         self.update_every = update_every
-        self.qnetwork_local = QNetwork(observation_space_shape, action_space_size).to(device)
-        self.qnetwork_target = QNetwork(observation_space_shape, action_space_size).to(device)
+        self.qnetwork_local = QNetwork(observation_space_shape, action_space_size).to(self.device)
+        self.qnetwork_target = QNetwork(observation_space_shape, action_space_size).to(self.device)
         self.optimizer = optim.Adam(self.qnetwork_local.parameters(), lr=lr)
         self.memory = ReplayBuffer(buffer_size, batch_size)
         self.t_step = 0
+        self.device = device
 
     def step(self, state, action, reward, next_state, done):
         self.memory.add(state, action, reward, next_state, done)
@@ -33,7 +34,7 @@ class DQNAgent:
                 self.learn(experiences, self.gamma)
 
     def select_action(self, state, eps=0.):
-        state = torch.from_numpy(state).float().unsqueeze(0).to(device)
+        state = torch.from_numpy(state).float().unsqueeze(0).to(self.device)
         self.qnetwork_local.eval()
         with torch.no_grad():
             action_values = self.qnetwork_local(state)
