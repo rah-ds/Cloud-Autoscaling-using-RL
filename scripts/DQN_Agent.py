@@ -6,7 +6,7 @@ import torch.optim as optim
 import random
 from collections import deque
 import pandas as pd
-from DQN_Utils import QNetwork
+from DQN_Utils import QNetwork, ReplayBuffer
 
 
 # --- DQNAgent Definition
@@ -22,7 +22,7 @@ class DQNAgent:
         self.qnetwork_local = QNetwork(observation_space_shape, action_space_size).to(self.device)
         self.qnetwork_target = QNetwork(observation_space_shape, action_space_size).to(self.device)
         self.optimizer = optim.Adam(self.qnetwork_local.parameters(), lr=lr)
-        self.memory = ReplayBuffer(buffer_size, batch_size)
+        self.memory = ReplayBuffer(buffer_size=buffer_size, batch_size=batch_size, devic=self.device,seed=seed)
         self.t_step = 0
         
 
