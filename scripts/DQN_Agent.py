@@ -34,7 +34,7 @@ class DQNAgent:
                 experiences = self.memory.sample()
                 self.learn(experiences, self.gamma)
 
-    def select_action(self, state, eps=0.):
+    def act(self, state, eps=0.):
         state = torch.from_numpy(state).float().unsqueeze(0).to(self.device)
         self.qnetwork_local.eval()
         with torch.no_grad():
