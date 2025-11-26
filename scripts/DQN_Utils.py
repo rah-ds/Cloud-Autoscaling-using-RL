@@ -98,8 +98,9 @@ def train_agent(agent, env, num_episodes, max_steps_per_episode,
     for i_episode in range(num_episodes):
 
         if use_random_windows:
-            state, info = reset_random_window(env, episode_length=max_steps_per_episode),
+            state, info = reset_random_window_for_split(env, episode_length=max_steps_per_episode,
             split = split
+            )
         else:
             state, info = env.reset()
 
