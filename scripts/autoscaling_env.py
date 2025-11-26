@@ -13,8 +13,12 @@ class AutoScalingEnvConfig:
     cost_per_machine_per_minute: float = 0.002  # The cost of running one machine for one minute.
     sla_penalty_weight: float = 10.0    # The penalty applied for exceeding the SLA threshold.
     min_capacity: int = 1               # The minimum number of machines the cluster can scale down to.
-    max_capacity: int = 50              # The maximum number of machines the cluster can scale up to.
+    max_capacity: int = 20             # The maximum number of machines the cluster can scale up to.
     cooldown_period: int = 5            # Steps the agent must wait after a scaling action.
+    demand_scale: float = 1000.0       #  scales avg_cpu up
+    cost_weight: float = 1.0          # weights for different reward terms
+    util_weight: float = 1.0
+    sla_weight: float = 10.0
 
 
 class AutoScalingEnv(gym.Env):
@@ -113,23 +117,30 @@ class AutoScalingEnv(gym.Env):
             self.cooldown = max(self.cooldown - 1, 0)
 
 
-        demand_cpu = row["avg_cpu"]
+        raw_cpu = row["avg_cpu"]
+        demand_cpu = raw_cpu * self.config.demand_scale
         utilization = (
             demand_cpu / self.current_capacity
             if self.current_capacity > 0 else 0.0
         )
         # ------------------------------------------------------------
 
-        cost_penalty = self.current_capacity * self.cost_per_machine_per_minute
+        # Cost term
+        raw_cost = self.current_capacity * self.cost_per_machine_per_minute
+        cost_term = -self.config.cost_weight * raw_cost
 
-        sla_penalty = 0.0
+        # SLA term
+        sla_term = 0.0
         if utilization > self.sla_threshold:
-            sla_penalty = (utilization - self.sla_threshold) * self.sla_penalty_weight
+            sla_excess = utilization - self.sla_threshold
+            sla_term = -self.config.sla_weight * sla_excess
 
-        # Negative absolute deviation from target (closer to target => closer to 0)
-        util_deviation_penalty = -abs(utilization - self.target_utilization)
+        # Utilization deviation term
+        util_deviation = abs(utilization - self.target_utilization)
+        util_term = -self.config.util_weight * util_deviation
 
-        reward = -cost_penalty - sla_penalty + util_deviation_penalty
+        # Total reward
+        reward = cost_term + sla_term + util_term
 
         # Advance time
         self.current_step += 1
@@ -148,15 +159,21 @@ class AutoScalingEnv(gym.Env):
                 dtype=np.float32
             )
 
+
+
         info = {
             "current_capacity": self.current_capacity,
             "utilization": utilization,
             "demand_cpu": demand_cpu,
             "reward_components": {
-                "cost_penalty": -cost_penalty,
-                "sla_penalty": -sla_penalty,
-                "util_deviation_penalty": util_deviation_penalty
-            }
+                "cost_term": cost_term,
+                "sla_term": sla_term,
+                "util_term": util_term,
+                }
+}
+
+
+
         }
 
         return self.state, reward, terminated, truncated, info

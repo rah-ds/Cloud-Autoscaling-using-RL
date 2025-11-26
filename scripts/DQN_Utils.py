@@ -11,6 +11,15 @@ import random
 from collections import deque
 import pandas as pd
 
+
+# Global split ranges for the 10,000-step df_usage
+SPLIT_RANGES = {
+    "train": (0, 6999),     # inclusive
+    "val":   (7000, 8499),  # inclusive
+    "test":  (8500, 9999),  # inclusive
+}
+
+
 # Define the device to use (GPU if available, otherwise CPU)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -55,22 +64,30 @@ class ReplayBuffer:
 
 
 
-def train_agent(agent, env, num_episodes, max_steps_per_episode, epsilon_start, epsilon_end, epsilon_decay):
+def train_agent(agent, env, num_episodes, max_steps_per_episode,
+                epsilon_start, epsilon_end, epsilon_decay, split: str = "train",
+                use_random_windows: bool = False):
+
     scores = []
     epsilon = epsilon_start
 
-    for i_episode in range(1, num_episodes + 1):
-        state, info = env.reset()
-        score = 0
-        done = False
-        truncated = False
+    for i_episode in range(num_episodes):
+
+        if use_random_windows:
+            state, info = reset_random_window(env, episode_length=max_steps_per_episode),
+            split = split
+        else:
+            state, info = env.reset()
+
+        score = 0.0
 
         for t in range(max_steps_per_episode):
-            action = agent.select_action(state, epsilon)
+            action = agent.act(state, epsilon)
             next_state, reward, terminated, truncated, info = env.step(action)
             agent.step(state, action, reward, next_state, terminated or truncated)
-            state = next_state
+
             score += reward
+            state = next_state
 
             if terminated or truncated:
                 break
@@ -84,12 +101,15 @@ def train_agent(agent, env, num_episodes, max_steps_per_episode, epsilon_start, 
     print("Training finished.")
     return scores
 
-def evaluate_agent(agent, env, num_evaluation_episodes, max_steps_per_evaluation_episode):
+def evaluate_agent(agent, env, num_evaluation_episodes, max_steps_per_evaluation_episode, split: str = "test", use_random_windows: bool = False):
     eval_scores = []
     evaluation_results = []
 
     for i_episode in range(1, num_evaluation_episodes + 1):
-        state, info = env.reset()
+        if use_random_windows:
+            state, info = reset_random_window(env, episode_length=max_steps_per_evaluation_episode, split = split )
+        else:
+            state, info = env.reset()
         score = 0
         episode_results = []
 
@@ -126,4 +146,98 @@ def evaluate_agent(agent, env, num_evaluation_episodes, max_steps_per_evaluation
     evaluation_results_df.set_index('step', inplace=True)
 
     return eval_scores, evaluation_results_df
+import numpy as np
 
+def reset_random_window(env, episode_length: int):
+    """
+    Reset env and jump to a random starting index so that we 
+    get a contiguous `episode_length`-step window.
+
+    Returns:
+        obs: initial observation at the chosen start index
+        info: info from the initial step (can just be {})
+    """
+    # Full dataset length (0..max_steps-1)
+    max_steps = env.max_steps  # attribute already in your env
+
+    # Last valid start so that start_idx + episode_length - 1 <= max_steps - 1
+    max_start_idx = max_steps - episode_length
+    start_idx = np.random.randint(0, max_start_idx + 1)
+
+    # Reset env to its default start
+    obs, info = env.reset()
+
+    # Jump to the sampled starting index and recompute observation
+    env.current_step = start_idx
+    obs = env._get_obs()  # use env's own observation builder
+
+    # Optionally add the window start to info
+    info["window_start"] = start_idx
+    info["window_end"] = start_idx + episode_length - 1
+
+    return obs, info
+
+def sample_start_index_for_split(split: str, episode_length: int, max_steps: int) -> int:
+    """
+    Sample a random start index for a contiguous episode window of length `episode_length`
+    restricted to the specified split.
+
+    Args:
+        split: one of {"train", "val", "test"}.
+        episode_length: number of steps in the episode (e.g., 1000).
+        max_steps: total number of steps in the underlying df_usage (env.max_steps).
+
+    Returns:
+        start_idx (int): starting index for the episode window.
+    """
+    if split not in SPLIT_RANGES:
+        raise ValueError(f"Unknown split '{split}'. Expected one of {list(SPLIT_RANGES.keys())}.")
+
+    split_start, split_end = SPLIT_RANGES[split]
+
+    # Safety: ensure split does not exceed dataset length
+    split_start = max(split_start, 0)
+    split_end = min(split_end, max_steps - 1)
+
+    split_length = split_end - split_start + 1
+    if episode_length > split_length:
+        raise ValueError(
+            f"Episode length {episode_length} is too long for split '{split}' "
+            f"with length {split_length} (range [{split_start}, {split_end}])."
+        )
+
+    # max_start is the largest index such that start_idx + episode_length - 1 <= split_end
+    max_start_idx = split_end - episode_length + 1
+    start_idx = np.random.randint(split_start, max_start_idx + 1)
+
+    return start_idx
+
+def reset_random_window_for_split(env, episode_length: int, split: str):
+    """
+    Reset the environment and jump to a random starting index within the given split.
+
+    Args:
+        env: the AutoScalingEnv instance.
+        episode_length: number of steps in the episode (e.g., 1000).
+        split: one of {"train", "val", "test"}.
+
+    Returns:
+        obs: initial observation at the chosen start index.
+        info: info dict, augmented with window_start/window_end.
+    """
+    # Reset env internal state (capacity, cooldown, etc.)
+    obs, info = env.reset()
+
+    # Sample a valid start index for the split
+    start_idx = sample_start_index_for_split(split, episode_length, env.max_steps)
+
+    # Jump to that index and recompute the observation
+    env.current_step = start_idx
+    obs = env._get_obs()  # use env's own observation builder
+
+    # Optionally record window bounds in info
+    info = dict(info)  # make a shallow copy
+    info["window_start"] = start_idx
+    info["window_end"] = start_idx + episode_length - 1
+
+    return obs, info
