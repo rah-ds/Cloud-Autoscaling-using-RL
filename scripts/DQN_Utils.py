@@ -139,7 +139,7 @@ def evaluate_agent(agent, env, num_evaluation_episodes, max_steps_per_evaluation
         episode_results = []
 
         for t in range(max_steps_per_evaluation_episode):
-            action = agent.select_action(state, eps=0.)
+            action = agent.act(state, eps=0.)
             next_state, reward, terminated, truncated, info = env.step(action)
 
             episode_results.append({
