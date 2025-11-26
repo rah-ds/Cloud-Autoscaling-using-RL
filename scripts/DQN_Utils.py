@@ -132,7 +132,7 @@ def evaluate_agent(agent, env, num_evaluation_episodes, max_steps_per_evaluation
 
     for i_episode in range(1, num_evaluation_episodes + 1):
         if use_random_windows:
-            state, info = reset_random_window(env, episode_length=max_steps_per_evaluation_episode, split = split )
+            state, info = reset_random_window_for_split(env, episode_length=max_steps_per_evaluation_episode, split = split )
         else:
             state, info = env.reset()
         score = 0
@@ -173,34 +173,6 @@ def evaluate_agent(agent, env, num_evaluation_episodes, max_steps_per_evaluation
     return eval_scores, evaluation_results_df
 import numpy as np
 
-def reset_random_window(env, episode_length: int):
-    """
-    Reset env and jump to a random starting index so that we 
-    get a contiguous `episode_length`-step window.
-
-    Returns:
-        obs: initial observation at the chosen start index
-        info: info from the initial step (can just be {})
-    """
-    # Full dataset length (0..max_steps-1)
-    max_steps = env.max_steps  # attribute already in your env
-
-    # Last valid start so that start_idx + episode_length - 1 <= max_steps - 1
-    max_start_idx = max_steps - episode_length
-    start_idx = np.random.randint(0, max_start_idx + 1)
-
-    # Reset env to its default start
-    obs, info = env.reset()
-
-    # Jump to the sampled starting index and recompute observation
-    env.current_step = start_idx
-    obs = env._get_obs()  # use env's own observation builder
-
-    # Optionally add the window start to info
-    info["window_start"] = start_idx
-    info["window_end"] = start_idx + episode_length - 1
-
-    return obs, info
 
 def sample_start_index_for_split(split: str, episode_length: int, max_steps: int) -> int:
     """
