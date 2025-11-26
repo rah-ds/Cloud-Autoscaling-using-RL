@@ -103,7 +103,7 @@ def evaluate_agent(agent, env, num_evaluation_episodes, max_steps_per_evaluation
                 'reward': reward,
                 'current_capacity': info['current_capacity'],
                 'utilization': info['utilization'],
-                'estimated_total_cpu_load': info['estimated_total_cpu_load'],
+                'demand_cpu': info['demand_cpu'],
                 'cost_penalty': info['reward_components'].get('cost_penalty', np.nan),
                 'sla_penalty': info['reward_components'].get('sla_penalty', np.nan),
                 'util_deviation_penalty': info['reward_components'].get('util_deviation_penalty', np.nan)
