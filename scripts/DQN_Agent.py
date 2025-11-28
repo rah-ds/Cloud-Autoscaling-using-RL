@@ -11,8 +11,6 @@ from DQN_Utils import QNetwork, ReplayBuffer, DuelingQNetwork
 
 # --- DQNAgent Definition
 class DQNAgent:
-# --- DQNAgent Definition
-class DQNAgent:
     def __init__(
         self,
         observation_space_shape,
