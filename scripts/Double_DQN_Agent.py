@@ -1,15 +1,14 @@
 import numpy as np
 import torch
-import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 import random
-from collections import deque
-from DQN_Utils import QNetwork, DuelingQNetwork, ReplayBuffer 
+
+from DQN_Utils import ReplayBuffer, QNetwork, DuelingQNetwork
 
 
 class DoubleDQNAgent:
-    """Interacts with and learns from the environment using Double DQN."""
+    """Double DQN agent that can use either standard QNetwork or DuelingQNetwork."""
 
     def __init__(
         self,
@@ -23,11 +22,11 @@ class DoubleDQNAgent:
         lr=5e-4,
         tau=1e-3,
         update_every=4,
+        network_class=DuelingQNetwork
     ):
         self.observation_space_shape = observation_space_shape
         self.action_space_size = action_space_size
 
-        # Allow caller to pass in a device, but default to cuda if available
         if device is None:
             self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         else:
@@ -38,99 +37,85 @@ class DoubleDQNAgent:
         self.tau = tau
         self.update_every = update_every
 
-        # Q-Networks
-        self.qnetwork_local = QNetwork(observation_space_shape, action_space_size).to(self.device)
-        self.qnetwork_target = QNetwork(observation_space_shape, action_space_size).to(self.device)
+        # Use whichever network class the user selects
+        self.qnetwork_local = network_class(observation_space_shape, action_space_size).to(self.device)
+        self.qnetwork_target = network_class(observation_space_shape, action_space_size).to(self.device)
 
-        # Initialize target with the same weights as local
+        # Make target identical at start
         self.qnetwork_target.load_state_dict(self.qnetwork_local.state_dict())
 
         self.optimizer = optim.Adam(self.qnetwork_local.parameters(), lr=lr)
 
-        # Replay memory
+        # Replay buffer must receive device
         self.memory = ReplayBuffer(buffer_size, batch_size, self.device)
         self.t_step = 0
 
+    # ----------------------
+    # Public Interface
+    # ----------------------
     def step(self, state, action, reward, next_state, done):
-        """Save experience in replay memory and learn every update_every steps."""
         self.memory.add(state, action, reward, next_state, done)
 
-        # Learn every update_every time steps.
         self.t_step = (self.t_step + 1) % self.update_every
         if self.t_step == 0:
-            # If enough samples are available in memory, get random subset and learn.
             if len(self.memory) > self.memory.batch_size:
                 experiences = self.memory.sample()
                 self.learn(experiences, self.gamma)
 
-    # === Interface wrapper to match DQN agent ===
     def act(self, state, eps=0.0):
-        """Return actions for given state as per current policy (epsilon-greedy)."""
-        return self.select_action(state, eps)
-
-    def select_action(self, state, eps=0.0):
-        """Epsilon-greedy action selection using the local Q-network."""
         state = torch.from_numpy(state).float().unsqueeze(0).to(self.device)
         self.qnetwork_local.eval()
         with torch.no_grad():
-            action_values = self.qnetwork_local(state)
+            q_values = self.qnetwork_local(state)
         self.qnetwork_local.train()
 
         if random.random() > eps:
-            # Exploit
-            return np.argmax(action_values.cpu().data.numpy())
+            return int(np.argmax(q_values.cpu().data.numpy()))
         else:
-            # Explore
-            return random.choice(np.arange(self.action_space_size))
+            return random.randrange(self.action_space_size)
 
+    # ----------------------
+    # Learning
+    # ----------------------
     def learn(self, experiences, gamma):
-        """Update value parameters using a batch of experience tuples.
-
-        Double DQN:
-          1) Use local network to select the best action for next_states.
-          2) Use target network to evaluate that action.
-        """
         states, actions, rewards, next_states, dones = experiences
 
-        # 1) Use local network to choose best action at next_state
         with torch.no_grad():
+            # 1. Best next actions from local network
             next_q_local = self.qnetwork_local(next_states)
-            next_action_indices = next_q_local.argmax(1).unsqueeze(1)
+            best_next_actions = next_q_local.argmax(dim=1, keepdim=True)
 
-            # 2) Use target network to value that action
+            # 2. Evaluate these actions using target network
             next_q_target = self.qnetwork_target(next_states)
-            Q_targets_next = next_q_target.gather(1, next_action_indices)
+            Q_targets_next = next_q_target.gather(1, best_next_actions)
 
-            # Compute Q targets for current states
+            # 3. Bellman target
             Q_targets = rewards + (gamma * Q_targets_next * (1 - dones))
 
-        # Get expected Q values from local model
+        # Current Q-values
         Q_expected = self.qnetwork_local(states).gather(1, actions)
 
         # Compute loss
         loss = F.mse_loss(Q_expected, Q_targets)
-
-        # Optimize the model
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
 
-        # Soft update of target network parameters
+        # Soft update
         self.soft_update(self.qnetwork_local, self.qnetwork_target, self.tau)
 
-    def soft_update(self, local_model, target_model, tau):
-        """Soft update model parameters.
-        θ_target = τ*θ_local + (1 - τ)*θ_target
-        """
-        for target_param, local_param in zip(target_model.parameters(), local_model.parameters()):
-            target_param.data.copy_(tau * local_param.data + (1.0 - tau) * target_param.data)
+    def soft_update(self, local, target, tau):
+        for target_param, local_param in zip(target.parameters(), local.parameters()):
+            target_param.data.copy_(tau * local_param.data + (1 - tau) * target_param.data)
 
-    # Optional: if your DQN agent has these, add them too for compatibility
-    def save(self, filepath):
-        torch.save(self.qnetwork_local.state_dict(), filepath)
+    # ----------------------
+    # Persistence
+    # ----------------------
+    def save(self, path):
+        torch.save(self.qnetwork_local.state_dict(), path)
 
-    def load(self, filepath):
-        state_dict = torch.load(filepath, map_location=self.device)
-        self.qnetwork_local.load_state_dict(state_dict)
-        self.qnetwork_target.load_state_dict(self.qnetwork_local.state_dict())
+    def load(self, path):
+        state = torch.load(path, map_location=self.device)
+        self.qnetwork_local.load_state_dict(state)
+        self.qnetwork_target.load_state_dict(state)
 
