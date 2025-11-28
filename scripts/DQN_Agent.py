@@ -23,7 +23,7 @@ class DQNAgent:
         lr=5e-4,
         tau=1e-3,
         update_every=4,
-        network_class=QNetwork,  #choose which network to use
+        network_class=QNetwork  #choose which network to use
     ):
         self.observation_space_shape = observation_space_shape
         self.action_space_size = action_space_size
