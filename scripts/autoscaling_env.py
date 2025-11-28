@@ -12,12 +12,12 @@ class AutoScalingEnvConfig:
     sla_threshold: float = 0.8          # The utilization threshold above which SLA violations occur.
     cost_per_machine_per_minute: float = 0.002  # The cost of running one machine for one minute.
     min_capacity: int = 1               # The minimum number of machines the cluster can scale down to.
-    max_capacity: int = 20             # The maximum number of machines the cluster can scale up to.
-    cooldown_period: int = 5            # Steps the agent must wait after a scaling action.
-    demand_scale: float = 1000.0       #  scales avg_cpu up
+    max_capacity: int = 12             # The maximum number of machines the cluster can scale up to.
+    cooldown_period: int = 2            # Steps the agent must wait after a scaling action.
+    demand_scale: float = 1500.0       #  scales avg_cpu up
     cost_weight: float = 1.0          # weights for different reward terms
-    util_weight: float = 1.0
-    sla_weight: float = 10.0
+    util_weight: float = 3.0
+    sla_weight: float = 15.0
 
 
 class AutoScalingEnv(gym.Env):
