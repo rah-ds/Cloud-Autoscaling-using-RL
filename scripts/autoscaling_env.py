@@ -11,7 +11,6 @@ class AutoScalingEnvConfig:
     target_utilization: float = 0.6     # The desired average CPU utilization for the cluster.
     sla_threshold: float = 0.8          # The utilization threshold above which SLA violations occur.
     cost_per_machine_per_minute: float = 0.002  # The cost of running one machine for one minute.
-    sla_penalty_weight: float = 10.0    # The penalty applied for exceeding the SLA threshold.
     min_capacity: int = 1               # The minimum number of machines the cluster can scale down to.
     max_capacity: int = 20             # The maximum number of machines the cluster can scale up to.
     cooldown_period: int = 5            # Steps the agent must wait after a scaling action.
