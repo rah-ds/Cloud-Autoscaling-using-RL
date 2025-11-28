@@ -25,27 +25,37 @@ SPLIT_RANGES = {
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
+# ----- Plain QNetwork -----
 class QNetwork(nn.Module):
-    def __init__(self, observation_space_shape, action_space_size, hidden_size=64):
-        super(QNetwork, self).__init__()
-        input_features = observation_space_shape[0]
-        self.fc1 = nn.Linear(input_features, hidden_size)
-        self.relu = nn.ReLU()
-        self.fc2 = nn.Linear(hidden_size, hidden_size)
-        self.fc3 = nn.Linear(hidden_size, action_space_size)
+    """Standard MLP Q-network: directly outputs Q(s,a)."""
 
-    def forward(self, state):
-        x = self.relu(self.fc1(state))
-        x = self.relu(self.fc2(x))
-        return self.fc3(x)
+    def __init__(self, observation_space_shape, action_space_size, seed=0):
+        super().__init__()
 
-class DuelingQNetwork(nn.Module):
-    def __init__(self, observation_space_shape, action_space_size):
-        ...
+        self.seed = torch.manual_seed(seed)
+
+        if isinstance(observation_space_shape, int):
+            state_size = observation_space_shape
+        else:
+            state_size = observation_space_shape[0]
+
+        self.fc1 = nn.Linear(state_size, 128)
+        self.fc2 = nn.Linear(128, 128)
+        self.fc3 = nn.Linear(128, action_space_size)
+
     def forward(self, x):
-        ...
+        # x: [batch, state_dim] or [state_dim]
+        if x.dim() == 1:
+            x = x.unsqueeze(0)
+
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        q_values = self.fc3(x)  # [batch, action_space_size]
+        return q_values
 
 
+
+# ----- Dueling QNetwork -----
 class DuelingQNetwork(nn.Module):
     """
     Dueling Q-Network:
@@ -57,42 +67,30 @@ class DuelingQNetwork(nn.Module):
     def __init__(self, observation_space_shape, action_space_size, seed=0):
         super().__init__()
 
-        # For reproducibility, if you care about it here
         self.seed = torch.manual_seed(seed)
 
-        # Handle observation_space_shape being int or tuple
         if isinstance(observation_space_shape, int):
             state_size = observation_space_shape
         else:
-            # Typical Gym Box space: shape is (state_dim,)
             state_size = observation_space_shape[0]
 
         self.action_size = action_space_size
 
-        # ----- Shared feature layer -----
-        # If your existing QNetwork uses different sizes (e.g., 64/64),
-        # feel free to match those here.
+        # Shared feature layer
         self.fc1 = nn.Linear(state_size, 128)
 
-        # ----- Value stream -----
+        # Value stream
         self.fc_value = nn.Linear(128, 128)
         self.value_out = nn.Linear(128, 1)
 
-        # ----- Advantage stream -----
+        # Advantage stream
         self.fc_advantage = nn.Linear(128, 128)
         self.advantage_out = nn.Linear(128, action_space_size)
 
     def forward(self, x):
-        """
-        Forward pass:
-          x: [batch_size, state_size] or [state_size]
-          returns: Q-values, shape [batch_size, action_space_size]
-        """
-        # If a single state comes in as [state_size], add batch dimension
         if x.dim() == 1:
             x = x.unsqueeze(0)
 
-        # Shared feature layer
         x = F.relu(self.fc1(x))
 
         # Value stream
@@ -101,12 +99,11 @@ class DuelingQNetwork(nn.Module):
 
         # Advantage stream
         advantage = F.relu(self.fc_advantage(x))
-        advantage = self.advantage_out(advantage)  # [batch, action_size]
+        advantage = self.advantage_out(advantage)  # [batch, A]
 
-        # Combine into Q-values
         advantage_mean = advantage.mean(dim=1, keepdim=True)  # [batch, 1]
-        q_values = value + (advantage - advantage_mean)       # [batch, action_size]
 
+        q_values = value + (advantage - advantage_mean)       # [batch, A]
         return q_values
 
 

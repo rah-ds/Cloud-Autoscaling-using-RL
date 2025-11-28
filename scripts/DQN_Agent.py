@@ -6,12 +6,27 @@ import torch.optim as optim
 import random
 from collections import deque
 import pandas as pd
-from DQN_Utils import QNetwork, ReplayBuffer
+from DQN_Utils import QNetwork, ReplayBuffer, DuelingQNetwork
 
 
 # --- DQNAgent Definition
 class DQNAgent:
-    def __init__(self, observation_space_shape, action_space_size, seed, device, buffer_size=int(1e5), batch_size=64, gamma=0.99, lr=5e-4, tau=1e-3, update_every=4):
+# --- DQNAgent Definition
+class DQNAgent:
+    def __init__(
+        self,
+        observation_space_shape,
+        action_space_size,
+        seed,
+        device,
+        buffer_size=int(1e5),
+        batch_size=64,
+        gamma=0.99,
+        lr=5e-4,
+        tau=1e-3,
+        update_every=4,
+        network_class=QNetwork,  #choose which network to use
+    ):
         self.observation_space_shape = observation_space_shape
         self.action_space_size = action_space_size
         self.seed = random.seed(seed)
@@ -19,10 +34,30 @@ class DQNAgent:
         self.tau = tau
         self.update_every = update_every
         self.device = device
-        self.qnetwork_local = QNetwork(observation_space_shape, action_space_size).to(self.device)
-        self.qnetwork_target = QNetwork(observation_space_shape, action_space_size).to(self.device)
+
+        # store the chosen network class
+        self.network_class = network_class
+
+        # build local and target networks using the chosen class
+        self.qnetwork_local = self.network_class(
+            observation_space_shape, action_space_size
+        ).to(self.device)
+
+        self.qnetwork_target = self.network_class(
+            observation_space_shape, action_space_size
+        ).to(self.device)
+
+        # initialize target with same weights as local
+        self.qnetwork_target.load_state_dict(self.qnetwork_local.state_dict())
+
         self.optimizer = optim.Adam(self.qnetwork_local.parameters(), lr=lr)
-        self.memory = ReplayBuffer(buffer_size=buffer_size, batch_size=batch_size, device=self.device,seed=seed)
+
+        self.memory = ReplayBuffer(
+            buffer_size=buffer_size,
+            batch_size=batch_size,
+            device=self.device,
+            seed=seed,
+        )
         self.t_step = 0
         
 
