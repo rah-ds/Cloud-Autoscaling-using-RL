@@ -47,7 +47,7 @@ class AutoScalingEnv(gym.Env):
         self.target_utilization = self.config.target_utilization
         self.sla_threshold = self.config.sla_threshold
         self.cost_per_machine_per_minute = self.config.cost_per_machine_per_minute
-        self.sla_penalty_weight = self.config.sla_penalty_weight
+        self.sla_weight = self.config.sla_weight
         self.min_capacity = self.config.min_capacity
         self.max_capacity = self.config.max_capacity
         self.cooldown_period = self.config.cooldown_period
