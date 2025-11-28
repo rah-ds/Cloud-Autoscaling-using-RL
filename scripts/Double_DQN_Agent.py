@@ -48,7 +48,7 @@ class DoubleDQNAgent:
         self.optimizer = optim.Adam(self.qnetwork_local.parameters(), lr=lr)
 
         # Replay memory
-        self.memory = ReplayBuffer(buffer_size, batch_size)
+        self.memory = ReplayBuffer(buffer_size, batch_size, self.device)
         self.t_step = 0
 
     def step(self, state, action, reward, next_state, done):
