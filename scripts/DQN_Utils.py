@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import torch.nn.functional as F
 import random
 from collections import deque
 import pandas as pd
@@ -37,6 +38,79 @@ class QNetwork(nn.Module):
         x = self.relu(self.fc1(state))
         x = self.relu(self.fc2(x))
         return self.fc3(x)
+
+class DuelingQNetwork(nn.Module):
+    def __init__(self, observation_space_shape, action_space_size):
+        ...
+    def forward(self, x):
+        ...
+
+
+class DuelingQNetwork(nn.Module):
+    """
+    Dueling Q-Network:
+      - Shared feature layer
+      - Separate value and advantage streams
+      - Q(s, a) = V(s) + (A(s, a) - mean_a A(s, a))
+    """
+
+    def __init__(self, observation_space_shape, action_space_size, seed=0):
+        super().__init__()
+
+        # For reproducibility, if you care about it here
+        self.seed = torch.manual_seed(seed)
+
+        # Handle observation_space_shape being int or tuple
+        if isinstance(observation_space_shape, int):
+            state_size = observation_space_shape
+        else:
+            # Typical Gym Box space: shape is (state_dim,)
+            state_size = observation_space_shape[0]
+
+        self.action_size = action_space_size
+
+        # ----- Shared feature layer -----
+        # If your existing QNetwork uses different sizes (e.g., 64/64),
+        # feel free to match those here.
+        self.fc1 = nn.Linear(state_size, 128)
+
+        # ----- Value stream -----
+        self.fc_value = nn.Linear(128, 128)
+        self.value_out = nn.Linear(128, 1)
+
+        # ----- Advantage stream -----
+        self.fc_advantage = nn.Linear(128, 128)
+        self.advantage_out = nn.Linear(128, action_space_size)
+
+    def forward(self, x):
+        """
+        Forward pass:
+          x: [batch_size, state_size] or [state_size]
+          returns: Q-values, shape [batch_size, action_space_size]
+        """
+        # If a single state comes in as [state_size], add batch dimension
+        if x.dim() == 1:
+            x = x.unsqueeze(0)
+
+        # Shared feature layer
+        x = F.relu(self.fc1(x))
+
+        # Value stream
+        value = F.relu(self.fc_value(x))
+        value = self.value_out(value)          # [batch, 1]
+
+        # Advantage stream
+        advantage = F.relu(self.fc_advantage(x))
+        advantage = self.advantage_out(advantage)  # [batch, action_size]
+
+        # Combine into Q-values
+        advantage_mean = advantage.mean(dim=1, keepdim=True)  # [batch, 1]
+        q_values = value + (advantage - advantage_mean)       # [batch, action_size]
+
+        return q_values
+
+
+
 
 from collections import deque
 import random

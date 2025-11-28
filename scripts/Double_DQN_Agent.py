@@ -5,7 +5,7 @@ import torch.optim as optim
 import torch.nn.functional as F
 import random
 from collections import deque
-from DQN_Utils import QNetwork, ReplayBuffer 
+from DQN_Utils import QNetwork, DuelingQNetwork, ReplayBuffer 
 
 
 class DoubleDQNAgent:
