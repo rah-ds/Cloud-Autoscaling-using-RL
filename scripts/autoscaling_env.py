@@ -12,28 +12,99 @@ class AutoScalingEnvConfig:
     sla_threshold: float = 0.8          # The utilization threshold above which SLA violations occur.
     cost_per_machine_per_minute: float = 0.002  # The cost of running one machine for one minute.
     min_capacity: int = 1               # The minimum number of machines the cluster can scale down to.
-    max_capacity: int = 12             # The maximum number of machines the cluster can scale up to.
+    max_capacity: int = 12              # The maximum number of machines the cluster can scale up to.
     cooldown_period: int = 2            # Steps the agent must wait after a scaling action.
-    demand_scale: float = 1500.0       #  scales avg_cpu up
-    cost_weight: float = 1.0          # weights for different reward terms
-    util_weight: float = 3.0
-    sla_weight: float = 15.0
+    demand_scale: float = 1500.0        # Scales avg_cpu up to "demand" CPU.
+    cost_weight: float = 1.0            # Weight for cost term in reward.
+    util_weight: float = 3.0            # Weight for utilization deviation term.
+    sla_weight: float = 15.0            # Weight for SLA violation term.
+
+
+# -------------------------------------------------------------------
+# Preset configurations for different environment profiles (A, B, C)
+# -------------------------------------------------------------------
+ENV_CONFIGS: dict[str, AutoScalingEnvConfig] = {
+    "A": AutoScalingEnvConfig(
+        # Baseline / balanced
+        initial_capacity=10,
+        target_utilization=0.60,
+        sla_threshold=0.80,
+        cost_per_machine_per_minute=0.002,
+        min_capacity=1,
+        max_capacity=12,
+        cooldown_period=2,
+        demand_scale=1500.0,
+        cost_weight=1.0,
+        util_weight=3.0,
+        sla_weight=15.0,
+    ),
+    "B": AutoScalingEnvConfig(
+        # High-demand / high-penalty
+        initial_capacity=12,
+        target_utilization=0.55,
+        sla_threshold=0.75,
+        cost_per_machine_per_minute=0.002,
+        min_capacity=1,
+        max_capacity=20,
+        cooldown_period=4,
+        demand_scale=2500.0,
+        cost_weight=0.8,
+        util_weight=4.0,
+        sla_weight=20.0,
+    ),
+    "C": AutoScalingEnvConfig(
+        # Low-load / cost-focused
+        initial_capacity=8,
+        target_utilization=0.70,
+        sla_threshold=0.85,
+        cost_per_machine_per_minute=0.002,
+        min_capacity=1,
+        max_capacity=10,
+        cooldown_period=3,
+        demand_scale=900.0,
+        cost_weight=2.0,
+        util_weight=2.0,
+        sla_weight=10.0,
+    ),
+}
+
+
+def get_env_config(profile: str) -> AutoScalingEnvConfig:
+    """
+    Look up a preset configuration by profile name ('A', 'B', 'C').
+    """
+    key = profile.upper()
+    if key not in ENV_CONFIGS:
+        raise ValueError(f"Unknown environment profile '{profile}'. Use 'A', 'B', or 'C'.")
+    return ENV_CONFIGS[key]
 
 
 class AutoScalingEnv(gym.Env):
     metadata = {"render_modes": ["human"]}
 
-    def __init__(self, usage_dataframe: pd.DataFrame,
-                 config: AutoScalingEnvConfig = AutoScalingEnvConfig()):
+    def __init__(
+        self,
+        usage_dataframe: pd.DataFrame,
+        profile: str = "A",
+        config: AutoScalingEnvConfig | None = None,
+    ):
         """
         Initializes the AutoScalingEnv reinforcement learning environment.
 
         Args:
             usage_dataframe (pd.DataFrame): DataFrame containing time-series usage data
                                             with columns ['time_window', 'avg_cpu'].
-            config (AutoScalingEnvConfig): Configuration object for the environment.
+            profile (str): Environment profile key: 'A', 'B', or 'C'. Ignored if
+                           a config is explicitly provided.
+            config (AutoScalingEnvConfig | None): Configuration object for the
+                                                  environment. If None, the
+                                                  profile's preset is used.
         """
         super().__init__()
+
+        # If user didn't pass a config, look up by profile
+        if config is None:
+            config = get_env_config(profile)
 
         self.df_usage = usage_dataframe.reset_index(drop=True)
         self.current_step = 0
@@ -56,14 +127,12 @@ class AutoScalingEnv(gym.Env):
         # Action: 0 (scale down), 1 (hold), 2 (scale up)
         self.action_space = spaces.Discrete(3)
 
-        # Observation: [avg_cpu]
-        # Bound CPU/mem from 0 to +inf, capacity between min and max capacity.
+        # Observation: [avg_cpu, current_capacity]
         self.observation_space = spaces.Box(
-        low=np.array([0.0, float(self.min_capacity)], dtype=np.float32),
-        high=np.array([np.inf, float(self.max_capacity)], dtype=np.float32),
-        dtype=np.float32
-)
-
+            low=np.array([0.0, float(self.min_capacity)], dtype=np.float32),
+            high=np.array([np.inf, float(self.max_capacity)], dtype=np.float32),
+            dtype=np.float32,
+        )
 
         self.state = self._get_obs()
 
@@ -72,7 +141,7 @@ class AutoScalingEnv(gym.Env):
         Gets the current observation of the environment.
 
         Returns:
-            np.ndarray: The observation array.
+            np.ndarray: The observation array [avg_cpu, current_capacity].
         """
         # Clamp step to valid range to avoid IndexError
         idx = min(self.current_step, self.max_steps - 1)
@@ -115,14 +184,12 @@ class AutoScalingEnv(gym.Env):
             # Decrement cooldown if not zero
             self.cooldown = max(self.cooldown - 1, 0)
 
-
         raw_cpu = row["avg_cpu"]
         demand_cpu = raw_cpu * self.config.demand_scale
         utilization = (
             demand_cpu / self.current_capacity
             if self.current_capacity > 0 else 0.0
         )
-        # ------------------------------------------------------------
 
         # Cost term
         raw_cost = self.current_capacity * self.cost_per_machine_per_minute
@@ -158,8 +225,6 @@ class AutoScalingEnv(gym.Env):
                 dtype=np.float32
             )
 
-
-
         info = {
             "current_capacity": self.current_capacity,
             "utilization": utilization,
@@ -168,9 +233,8 @@ class AutoScalingEnv(gym.Env):
                 "cost_term": cost_term,
                 "sla_term": sla_term,
                 "util_term": util_term,
-                }
-}
-
+            }
+        }
 
         return self.state, reward, terminated, truncated, info
 
