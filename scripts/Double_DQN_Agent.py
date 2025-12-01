@@ -22,7 +22,7 @@ class DoubleDQNAgent:
         lr=5e-4,
         tau=1e-3,
         update_every=4,
-        network_class=DuelingQNetwork
+        network_class=QNetwork
     ):
         self.observation_space_shape = observation_space_shape
         self.action_space_size = action_space_size
