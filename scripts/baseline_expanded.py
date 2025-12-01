@@ -132,7 +132,7 @@ def main():
     fig.savefig(os.path.join(args.outdir, f"eval_{args.algo}_seed{args.seed}.png"))
     logger.info("Saved eval plot and summary to %s", args.outdir)
 
-    vec_env.close()
+    vec_env.close()gi
     eval_env.close()
 
 
