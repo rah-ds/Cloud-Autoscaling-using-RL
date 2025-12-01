@@ -92,6 +92,11 @@ possibility of testing against more realistic traces.
   * May be used to test how well the RL agent generalizes beyond
     synthetic data
 
+<<<<<<< HEAD
+  * use some established baselines like established baselines
+
+
+=======
 ## Getting Started with uv
 
 ### Quick Start
@@ -201,11 +206,16 @@ These rules help ensure:
 - Automated checks pass consistently
 - The main branch remains stable
 - All team members follow consistent practices
+>>>>>>> f5d7b5ed717b75ded25d2dea22207e73220003c8
 
 ## Important Links
 
 * The [class Canvas](https://canvas.its.virginia.edu/courses/159418/modules)
 * The class repo can be found [here](https://github.com/UVADS/reinforcement_learning_online_msds/commits/main/)
+<<<<<<< HEAD
+* TODO: add in Rivanna start up info (could be needed for long running experiments)
+* OVERLEAF for the read out report [link here](https://www.overleaf.com/7158248618vhwgyscspwqx#7d2e57)
+=======
 * **Rivanna HPC Resources** (for long-running experiments):
   * [Rivanna User Guide](https://www.rc.virginia.edu/userinfo/rivanna/overview/)
   * [Getting Started with Rivanna](https://www.rc.virginia.edu/userinfo/rivanna/login/)
@@ -217,6 +227,7 @@ These rules help ensure:
     3. Create a SLURM job script for long-running experiments
     4. Submit with: `sbatch your_script.sh`
     5. Monitor with: `squeue -u <your_id>`
+>>>>>>> f5d7b5ed717b75ded25d2dea22207e73220003c8
 
 ## Contributing
 
@@ -240,6 +251,11 @@ We welcome contributions from the community! Here's how you can help:
 
 ### Reporting Issues
 
+<<<<<<< HEAD
+## TODO:
+
+try and make the env an open gym function?
+=======
 Found a bug or have a feature request? Please open an issue on GitHub with:
 - A clear description of the problem or feature
 - Steps to reproduce (for bugs)
@@ -275,3 +291,4 @@ This project is licensed under the terms specified in the LICENSE file.
 * University of Virginia - Master of Science in Data Science program
 * Course instructors and TAs for guidance and support
 * Kaggle and GitHub dataset contributors for providing valuable data resources
+>>>>>>> f5d7b5ed717b75ded25d2dea22207e73220003c8

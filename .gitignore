@@ -1,5 +1,11 @@
 .venv
 data
+<<<<<<< HEAD
+__pycache__
+data
+scratch
+scratch
+=======
 .DS_Store
 
 # Python
@@ -17,3 +23,4 @@ venv/
 # Data (adjust as needed)
 data/raw/
 data/interim/
+>>>>>>> f5d7b5ed717b75ded25d2dea22207e73220003c8
