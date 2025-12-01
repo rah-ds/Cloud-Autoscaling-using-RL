@@ -1,0 +1,32 @@
+# Core scientific stack
+numpy
+pandas
+matplotlib
+seaborn
+
+# Reinforcement Learning
+gymnasium
+gymnasium[classic-control]
+gymnasium[box2d]
+
+# PyTorch (CPU version; adjust if using GPU wheel)
+torch
+torchvision
+torchaudio
+
+# Jupyter environment
+ipykernel
+jupyter
+jupyterlab
+
+# Utilities
+tqdm
+python-dotenv
+
+# Optional but recommended for RL experiments
+scikit-learn
+
+# For formatting, linting, and pre-commit hooks (optional)
+black
+flake8
+pre-commit
