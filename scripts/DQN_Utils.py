@@ -1,5 +1,28 @@
+"""
+DQN Utilities for Cloud Autoscaling Reinforcement Learning
 
-"""## DQN Utilities
+This module provides implementations and utilities for training and evaluating
+Deep Q-Network (DQN) agents for the cloud autoscaling problem.
+
+Key Components:
+    - QNetwork: Standard MLP-based Q-network for direct Q-value approximation
+    - DuelingQNetwork: Advanced dueling architecture with separate value and
+      advantage streams for improved learning
+    - ReplayBuffer: Experience replay buffer for storing and sampling training data
+    - train_agent(): Training loop with epsilon-greedy exploration
+    - evaluate_agent(): Evaluation loop that produces detailed step-by-step metrics
+    - sample_start_index_for_split(): Utility for sampling episode windows from
+      different train/val/test splits
+    - reset_random_window_for_split(): Environment reset with random windowing
+
+Data Split Configuration:
+    SPLIT_RANGES defines three fixed ranges over a 10,000-step dataset:
+    - train: steps 0-6999
+    - val: steps 7000-8499
+    - test: steps 8500-9999
+
+The module supports both standard and random-window-based episode sampling to enable
+flexible training and evaluation strategies on time-series data.
 """
 
 import numpy as np
