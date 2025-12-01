@@ -10,11 +10,8 @@ dependencies = [
     "matplotlib>=3.10.7",
     "numpy>=2.3.4",
     "pandas>=2.3.3",
-<<<<<<< HEAD
     "pytest>=8.4.2",
-=======
     "pre-commit>=3.6.0",
->>>>>>> f5d7b5ed717b75ded25d2dea22207e73220003c8
     "ruff>=0.14.1",
     "seaborn>=0.13.2",
     "statsmodels>=0.14.5",
