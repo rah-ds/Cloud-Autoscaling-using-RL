@@ -1,3 +1,39 @@
+"""
+Double Deep Q-Network (Double DQN) Agent for Cloud Autoscaling
+
+This module implements a DoubleDQNAgent class that learns optimal cloud autoscaling
+policies using the Double DQN algorithm, which addresses overestimation bias in
+standard DQN by decoupling action selection from evaluation.
+
+Key Features:
+    - Double Q-learning: Uses local network to select actions, target network to
+      evaluate them, reducing Q-value overestimation
+    - Flexible network architecture support (QNetwork or DuelingQNetwork)
+    - Experience replay buffer for stable off-policy learning
+    - Soft target network updates (polyak averaging) for improved stability
+    - Epsilon-greedy exploration strategy
+    - Model persistence (save/load weights)
+    - Configurable hyperparameters (learning rate, gamma, tau, batch size, etc.)
+
+Double DQN Algorithm:
+    Standard DQN uses: Q_target = reward + gamma * max_a Q_target(next_state, a)
+    This can lead to overestimation of Q-values.
+    
+    Double DQN uses:
+        1. Select best action: a* = argmax_a Q_local(next_state, a)
+        2. Evaluate with target: Q_target = reward + gamma * Q_target(next_state, a*)
+    This decoupling reduces overestimation bias.
+
+Usage:
+    agent = DoubleDQNAgent(observation_space_shape=2, action_space_size=3,
+                          seed=42, device=device, network_class=QNetwork)
+    state, _ = env.reset()
+    action = agent.act(state, eps=0.1)
+    next_state, reward, done, _, _ = env.step(action)
+    agent.step(state, action, reward, next_state, done)
+    agent.save("double_dqn_model.pth")
+"""
+
 import numpy as np
 import torch
 import torch.optim as optim

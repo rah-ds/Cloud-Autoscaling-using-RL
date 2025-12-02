@@ -1,3 +1,35 @@
+"""
+Deep Q-Network (DQN) Agent for Cloud Autoscaling
+
+This module implements a DQNAgent class that learns optimal cloud autoscaling
+policies using the Deep Q-Network algorithm with experience replay and soft
+target updates.
+
+Key Features:
+    - Flexible network architecture support (QNetwork or DuelingQNetwork)
+    - Experience replay buffer for stable off-policy learning
+    - Soft target network updates (polyak averaging) for improved stability
+    - Epsilon-greedy exploration strategy
+    - Model persistence (save/load weights)
+    - Configurable hyperparameters (learning rate, gamma, tau, batch size, etc.)
+
+Algorithm Overview:
+    1. Agent observes state and selects action using epsilon-greedy policy
+    2. Action produces reward and next state from environment
+    3. Experience tuple is stored in replay buffer
+    4. Every update_every steps, agent samples batch from buffer and performs
+       gradient descent update on Q-network
+    5. Target network is soft-updated using polyak averaging (tau parameter)
+
+Usage:
+    agent = DQNAgent(observation_space_shape=2, action_space_size=3,
+                     seed=42, device=device, network_class=QNetwork)
+    state, _ = env.reset()
+    action = agent.act(state, eps=0.1)
+    next_state, reward, done, _, _ = env.step(action)
+    agent.step(state, action, reward, next_state, done)
+    agent.save("model.pth")
+"""
 
 import numpy as np
 import torch

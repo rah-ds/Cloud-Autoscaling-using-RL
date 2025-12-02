@@ -1,3 +1,33 @@
+"""
+Cloud Autoscaling Environment for Reinforcement Learning
+
+This module implements a custom Gymnasium environment (AutoScalingEnv) that simulates
+cloud resource autoscaling decisions. The environment models a cluster of machines with
+time-varying CPU demand and allows an RL agent to learn optimal scaling policies.
+
+Key Components:
+    - AutoScalingEnvConfig: Configuration dataclass containing environment parameters
+      (capacity limits, utilization targets, cost weights, SLA thresholds, etc.)
+    - AutoScalingEnv: The main RL environment class that extends gymnasium.Env
+    - ENV_CONFIGS: Preset configurations (profiles A, B, C) representing different
+      operational scenarios (balanced, high-demand, low-load)
+
+The environment:
+    - Takes a DataFrame with time-series CPU usage data as input
+    - Provides actions: 0 (scale down), 1 (hold), 2 (scale up)
+    - Computes rewards based on three components: operational cost, SLA violations,
+      and utilization deviation from target
+    - Enforces a cooldown period between scaling actions
+    - Includes constraints on min/max cluster capacity
+
+Usage:
+    config = get_env_config("A")  # Load preset profile
+    env = AutoScalingEnv(usage_df, config=config)
+    obs, info = env.reset()
+    action = agent.select_action(obs)
+    obs, reward, terminated, truncated, info = env.step(action)
+"""
+
 import gymnasium as gym
 from gymnasium import spaces
 import numpy as np
