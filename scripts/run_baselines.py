@@ -18,10 +18,12 @@ Usage:
 import argparse
 import json
 import logging
+import pickle
 import sys
 from datetime import datetime
+from glob import glob
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, Optional, Tuple
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -103,6 +105,57 @@ logger = logging.getLogger("run_experiments")
 # Plot settings
 sns.set_style("whitegrid")
 plt.rcParams["figure.figsize"] = (12, 6)
+
+# Models directory
+MODELS_DIR = PROJECT_ROOT / "artifacts" / "models"
+
+
+def get_model_path(algorithm: str, n_episodes: int, date: str = None) -> Path:
+    """Generate model file path with algorithm, episodes, and date."""
+    if date is None:
+        date = datetime.now().strftime("%Y%m%d")
+    return MODELS_DIR / f"{algorithm}_{n_episodes}ep_{date}.pkl"
+
+
+def find_existing_model(algorithm: str, n_episodes: int) -> Optional[Path]:
+    """Find an existing model file for the given algorithm and episode count."""
+    MODELS_DIR.mkdir(parents=True, exist_ok=True)
+    # Look for any model with matching algorithm and episodes (any date)
+    pattern = str(MODELS_DIR / f"{algorithm}_{n_episodes}ep_*.pkl")
+    matches = glob(pattern)
+    if matches:
+        # Return the most recent one
+        return Path(sorted(matches, reverse=True)[0])
+    return None
+
+
+def save_model(agent: Any, algorithm: str, n_episodes: int, metadata: Dict = None) -> Path:
+    """Save a trained agent to disk."""
+    MODELS_DIR.mkdir(parents=True, exist_ok=True)
+    model_path = get_model_path(algorithm, n_episodes)
+    
+    save_data = {
+        "agent": agent,
+        "algorithm": algorithm,
+        "n_episodes": n_episodes,
+        "saved_at": datetime.now().isoformat(),
+        "metadata": metadata or {},
+    }
+    
+    with open(model_path, "wb") as f:
+        pickle.dump(save_data, f)
+    
+    logger.info(f"Model saved to {model_path}")
+    return model_path
+
+
+def load_model(model_path: Path) -> Tuple[Any, Dict]:
+    """Load a trained agent from disk."""
+    with open(model_path, "rb") as f:
+        save_data = pickle.load(f)
+    
+    logger.info(f"Model loaded from {model_path}")
+    return save_data["agent"], save_data
 
 
 def generate_workload(length: int = 1000, seed: int = 42) -> np.ndarray:
@@ -209,9 +262,27 @@ def train_q_learning_agent(
     epsilon: float = 1.0,
     epsilon_decay: float = 0.995,
     seed: int = 42,
+    skip_if_exists: bool = True,
 ) -> Dict[str, Any]:
     """Train Q-Learning agent and return metrics."""
     global USE_WANDB
+
+    # Check for existing model
+    existing_model = find_existing_model("q_learning", n_episodes)
+    if skip_if_exists and existing_model:
+        logger.info("=" * 50)
+        logger.info(f"Found existing Q-Learning model: {existing_model}")
+        logger.info("Skipping training (use --force to retrain)")
+        agent, save_data = load_model(existing_model)
+        return {
+            "agent": agent,
+            "episode_rewards": save_data["metadata"].get("episode_rewards", []),
+            "episode_sla": save_data["metadata"].get("episode_sla", []),
+            "final_epsilon": save_data["metadata"].get("final_epsilon", 0.01),
+            "mean_reward": save_data["metadata"].get("mean_reward", 0),
+            "mean_sla": save_data["metadata"].get("mean_sla", 0),
+            "loaded_from": str(existing_model),
+        }
 
     logger.info("=" * 50)
     logger.info("Training Q-Learning Agent")
@@ -296,6 +367,20 @@ def train_q_learning_agent(
         log_summary(final_reward, final_sla, best_reward=max(episode_rewards))
         finish_run()
 
+    # Save the trained model
+    metadata = {
+        "episode_rewards": episode_rewards,
+        "episode_sla": episode_sla,
+        "final_epsilon": agent.epsilon,
+        "mean_reward": final_reward,
+        "mean_sla": final_sla,
+        "learning_rate": learning_rate,
+        "discount_factor": discount_factor,
+        "epsilon_decay": epsilon_decay,
+        "seed": seed,
+    }
+    save_model(agent, "q_learning", n_episodes, metadata)
+
     return {
         "agent": agent,
         "episode_rewards": episode_rewards,
@@ -314,9 +399,27 @@ def train_sarsa_agent(
     epsilon: float = 1.0,
     epsilon_decay: float = 0.995,
     seed: int = 42,
+    skip_if_exists: bool = True,
 ) -> Dict[str, Any]:
     """Train SARSA agent and return metrics."""
     global USE_WANDB
+
+    # Check for existing model
+    existing_model = find_existing_model("sarsa", n_episodes)
+    if skip_if_exists and existing_model:
+        logger.info("=" * 50)
+        logger.info(f"Found existing SARSA model: {existing_model}")
+        logger.info("Skipping training (use --force to retrain)")
+        agent, save_data = load_model(existing_model)
+        return {
+            "agent": agent,
+            "episode_rewards": save_data["metadata"].get("episode_rewards", []),
+            "episode_sla": save_data["metadata"].get("episode_sla", []),
+            "final_epsilon": save_data["metadata"].get("final_epsilon", 0.01),
+            "mean_reward": save_data["metadata"].get("mean_reward", 0),
+            "mean_sla": save_data["metadata"].get("mean_sla", 0),
+            "loaded_from": str(existing_model),
+        }
 
     logger.info("=" * 50)
     logger.info("Training SARSA Agent")
@@ -410,6 +513,20 @@ def train_sarsa_agent(
         log_summary(final_reward, final_sla, best_reward=max(episode_rewards))
         finish_run()
 
+    # Save the trained model
+    metadata = {
+        "episode_rewards": episode_rewards,
+        "episode_sla": episode_sla,
+        "final_epsilon": agent.epsilon,
+        "mean_reward": final_reward,
+        "mean_sla": final_sla,
+        "learning_rate": learning_rate,
+        "discount_factor": discount_factor,
+        "epsilon_decay": epsilon_decay,
+        "seed": seed,
+    }
+    save_model(agent, "sarsa", n_episodes, metadata)
+
     return {
         "agent": agent,
         "episode_rewards": episode_rewards,
@@ -489,9 +606,27 @@ def train_dqn_agent(
     epsilon: float = 1.0,
     epsilon_decay: float = 0.995,
     seed: int = 42,
+    skip_if_exists: bool = True,
 ) -> Dict[str, Any]:
     """Train DQN-based agent and return metrics."""
     global USE_WANDB
+
+    # Check for existing model
+    existing_model = find_existing_model(agent_type, n_episodes)
+    if skip_if_exists and existing_model:
+        logger.info("=" * 50)
+        logger.info(f"Found existing {agent_type.upper()} model: {existing_model}")
+        logger.info("Skipping training (use --force to retrain)")
+        agent, save_data = load_model(existing_model)
+        return {
+            "agent": agent,
+            "episode_rewards": save_data["metadata"].get("episode_rewards", []),
+            "episode_sla": save_data["metadata"].get("episode_sla", []),
+            "final_epsilon": save_data["metadata"].get("final_epsilon", 0.01),
+            "mean_reward": save_data["metadata"].get("mean_reward", 0),
+            "mean_sla": save_data["metadata"].get("mean_sla", 0),
+            "loaded_from": str(existing_model),
+        }
 
     logger.info("=" * 50)
     logger.info(f"Training {agent_type.upper()} Agent")
@@ -611,6 +746,20 @@ def train_dqn_agent(
     if USE_WANDB and WANDB_AVAILABLE:
         log_summary(final_reward, final_sla, best_reward=max(episode_rewards))
         finish_run()
+
+    # Save the trained model
+    metadata = {
+        "episode_rewards": episode_rewards,
+        "episode_sla": episode_sla,
+        "final_epsilon": agent.epsilon,
+        "mean_reward": final_reward,
+        "mean_sla": final_sla,
+        "learning_rate": learning_rate,
+        "discount_factor": discount_factor,
+        "epsilon_decay": epsilon_decay,
+        "seed": seed,
+    }
+    save_model(agent, agent_type, n_episodes, metadata)
 
     return {
         "agent": agent,
@@ -750,6 +899,9 @@ def main():
         help="Logging level",
     )
     parser.add_argument("--no-wandb", action="store_true", help="Disable wandb logging")
+    parser.add_argument(
+        "--force", action="store_true", help="Force retraining even if model exists"
+    )
     args = parser.parse_args()
 
     # Setup wandb
@@ -812,43 +964,54 @@ def main():
     run_dqn = args.algo in ["all", "deep", "dqn"]
     run_double_dqn = args.algo in ["all", "deep", "double-dqn"]
     run_dueling_dqn = args.algo in ["all", "deep", "dueling-dqn"]
+    
+    # Whether to skip training if model exists
+    skip_if_exists = not args.force
 
     # Run baselines
     if run_baselines:
         results["baselines"] = run_baseline_policies(
             env, n_episodes=min(100, n_episodes)
         )
+        save_results(results, results_dir, plots_dir)  # Save incrementally
 
     # Run Q-Learning
     if run_q_learning:
         results["q_learning"] = train_q_learning_agent(
-            env, n_episodes=n_episodes, seed=args.seed
+            env, n_episodes=n_episodes, seed=args.seed, skip_if_exists=skip_if_exists
         )
+        save_results(results, results_dir, plots_dir)  # Save incrementally
 
     # Run SARSA
     if run_sarsa:
-        results["sarsa"] = train_sarsa_agent(env, n_episodes=n_episodes, seed=args.seed)
+        results["sarsa"] = train_sarsa_agent(
+            env, n_episodes=n_episodes, seed=args.seed, skip_if_exists=skip_if_exists
+        )
+        save_results(results, results_dir, plots_dir)  # Save incrementally
 
     # Run DQN
     if run_dqn:
         results["dqn"] = train_dqn_agent(
-            env, n_episodes=n_episodes, agent_type="dqn", seed=args.seed
+            env, n_episodes=n_episodes, agent_type="dqn", seed=args.seed,
+            skip_if_exists=skip_if_exists
         )
+        save_results(results, results_dir, plots_dir)  # Save incrementally
 
     # Run Double DQN
     if run_double_dqn:
         results["double_dqn"] = train_dqn_agent(
-            env, n_episodes=n_episodes, agent_type="double_dqn", seed=args.seed
+            env, n_episodes=n_episodes, agent_type="double_dqn", seed=args.seed,
+            skip_if_exists=skip_if_exists
         )
+        save_results(results, results_dir, plots_dir)  # Save incrementally
 
     # Run Dueling DQN
     if run_dueling_dqn:
         results["dueling_dqn"] = train_dqn_agent(
-            env, n_episodes=n_episodes, agent_type="dueling_dqn", seed=args.seed
+            env, n_episodes=n_episodes, agent_type="dueling_dqn", seed=args.seed,
+            skip_if_exists=skip_if_exists
         )
-
-    # Save results and plots
-    save_results(results, results_dir, plots_dir)
+        save_results(results, results_dir, plots_dir)  # Save final results
 
     # Calculate elapsed time
     elapsed_time = datetime.now() - start_time
