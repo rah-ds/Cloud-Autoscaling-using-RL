@@ -60,6 +60,23 @@ This project investigates whether these theoretical benefits translate to measur
 Our experiments compare Deep RL agents (DQN, Double DQN, Dueling DQN) trained over 2000 episodes. Click to expand each visualization:
 
 <details>
+<summary><b>🧠 Evidence of Learning</b></summary>
+
+![Learning Evidence](docs/final_plots/learning_evidence.png)
+
+**Key Metrics Demonstrating Learning:**
+
+| Algorithm | Reward Improvement | Variance Reduction | Trend Slope |
+|-----------|-------------------|-------------------|-------------|
+| DQN | +99.2% | -81.2% | +5.6/episode |
+| Double DQN | +101.1% | -85.7% | +5.9/episode |
+| Dueling DQN | +104.3% | -81.1% | +5.7/episode |
+
+*All agents show: (A) consistent reward improvement across training phases, (B) increasing cumulative rewards, (C) upward trending smoothed learning curves, and (D) decreasing variance indicating policy stabilization.*
+
+</details>
+
+<details>
 <summary><b>📈 Learning Curves</b></summary>
 
 ![Learning Curves](docs/final_plots/learning_curves_20251203_120832.png)
