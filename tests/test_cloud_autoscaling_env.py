@@ -30,7 +30,7 @@ class TestCloudAutoscalingEnv:
     def test_reset_returns_valid_state(self, env):
         """Test that reset returns valid state and info."""
         state, info = env.reset()
-        
+
         assert isinstance(state, np.ndarray)
         assert len(state) == 3  # (utilization_level, capacity_level, demand_trend)
         assert "utilization" in info
@@ -48,10 +48,10 @@ class TestCloudAutoscalingEnv:
         """Test step returns (state, reward, terminated, truncated, info)."""
         env.reset()
         result = env.step(1)  # Hold
-        
+
         assert len(result) == 5
         state, reward, terminated, truncated, info = result
-        
+
         assert isinstance(state, np.ndarray)
         assert isinstance(reward, (int, float))
         assert isinstance(terminated, bool)
@@ -62,9 +62,9 @@ class TestCloudAutoscalingEnv:
         """Test that scale up action increases capacity."""
         env.reset()
         initial_capacity = env.current_capacity
-        
+
         env.step(2)  # Scale up
-        
+
         assert env.current_capacity == initial_capacity + 1
 
     def test_scale_down_decreases_capacity(self, env):
@@ -72,29 +72,29 @@ class TestCloudAutoscalingEnv:
         env.reset()
         env.current_capacity = 3  # Ensure we have room to scale down
         initial_capacity = env.current_capacity
-        
+
         env.step(0)  # Scale down
-        
+
         assert env.current_capacity == initial_capacity - 1
 
     def test_hold_maintains_capacity(self, env):
         """Test that hold action maintains capacity."""
         env.reset()
         initial_capacity = env.current_capacity
-        
+
         env.step(1)  # Hold
-        
+
         assert env.current_capacity == initial_capacity
 
     def test_capacity_bounds(self, env):
         """Test capacity stays within bounds."""
         env.reset()
-        
+
         # Scale down repeatedly
         for _ in range(20):
             env.step(0)
         assert env.current_capacity >= env.min_capacity
-        
+
         # Scale up repeatedly
         for _ in range(20):
             env.step(2)
@@ -103,25 +103,25 @@ class TestCloudAutoscalingEnv:
     def test_episode_terminates(self, env):
         """Test episode terminates when workload is exhausted."""
         env.reset()
-        
+
         terminated = False
         for _ in range(200):
             _, _, terminated, _, _ = env.step(1)
             if terminated:
                 break
-        
+
         assert terminated
 
     def test_seeding_reproducibility(self):
         """Test same seed produces same results."""
         workload = np.array([50.0] * 50)
-        
+
         env1 = CloudAutoscalingEnv(workload_data=workload.copy(), seed=42)
         env2 = CloudAutoscalingEnv(workload_data=workload.copy(), seed=42)
-        
+
         state1, _ = env1.reset()
         state2, _ = env2.reset()
-        
+
         assert np.array_equal(state1, state2)
 
     def test_reward_sla_violation(self, env_variable_workload):
@@ -130,9 +130,9 @@ class TestCloudAutoscalingEnv:
         env.reset()
         env.current_capacity = 1  # Force high utilization
         env.current_demand = 100  # High demand
-        
+
         _, reward, _, _, info = env.step(1)  # Hold with high utilization
-        
+
         # Reward should be negative due to SLA violation
         assert reward < 0
 
@@ -140,7 +140,7 @@ class TestCloudAutoscalingEnv:
         """Test info dict contains expected metrics."""
         env.reset()
         _, _, _, _, info = env.step(1)
-        
+
         assert "utilization" in info
         assert "demand" in info
         assert "capacity" in info

@@ -18,7 +18,7 @@ Key Features:
 Double DQN Algorithm:
     Standard DQN uses: Q_target = reward + gamma * max_a Q_target(next_state, a)
     This can lead to overestimation of Q-values.
-    
+
     Double DQN uses:
         1. Select best action: a* = argmax_a Q_local(next_state, a)
         2. Evaluate with target: Q_target = reward + gamma * Q_target(next_state, a*)
@@ -40,7 +40,7 @@ import torch.optim as optim
 import torch.nn.functional as F
 import random
 
-from DQN_Utils import ReplayBuffer, QNetwork, DuelingQNetwork
+from DQN_Utils import ReplayBuffer, QNetwork
 
 
 class DoubleDQNAgent:
@@ -58,7 +58,7 @@ class DoubleDQNAgent:
         lr=5e-4,
         tau=1e-3,
         update_every=4,
-        network_class=QNetwork
+        network_class=QNetwork,
     ):
         self.observation_space_shape = observation_space_shape
         self.action_space_size = action_space_size
@@ -74,8 +74,12 @@ class DoubleDQNAgent:
         self.update_every = update_every
 
         # Use whichever network class the user selects
-        self.qnetwork_local = network_class(observation_space_shape, action_space_size).to(self.device)
-        self.qnetwork_target = network_class(observation_space_shape, action_space_size).to(self.device)
+        self.qnetwork_local = network_class(
+            observation_space_shape, action_space_size
+        ).to(self.device)
+        self.qnetwork_target = network_class(
+            observation_space_shape, action_space_size
+        ).to(self.device)
 
         # Make target identical at start
         self.qnetwork_target.load_state_dict(self.qnetwork_local.state_dict())
@@ -142,7 +146,9 @@ class DoubleDQNAgent:
 
     def soft_update(self, local, target, tau):
         for target_param, local_param in zip(target.parameters(), local.parameters()):
-            target_param.data.copy_(tau * local_param.data + (1 - tau) * target_param.data)
+            target_param.data.copy_(
+                tau * local_param.data + (1 - tau) * target_param.data
+            )
 
     # ----------------------
     # Persistence
@@ -154,4 +160,3 @@ class DoubleDQNAgent:
         state = torch.load(path, map_location=self.device)
         self.qnetwork_local.load_state_dict(state)
         self.qnetwork_target.load_state_dict(state)
-

@@ -27,3 +27,8 @@ artifacts/models/
 !artifacts/plots/.gitkeep
 artifacts/plots/*
 docs/report
+keys
+
+# Weights & Biases
+wandb/
+*.wandb
