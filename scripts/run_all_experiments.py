@@ -136,13 +136,23 @@ def main():
         [python, "scripts/run_baselines.py", 
          "--episodes", str(episodes),
          "--seed", str(args.seed),
-         "--algo", "all"],
+         "--algo", "tabular"],
         "Tabular RL Experiments (Q-Learning + SARSA + Baselines)"
     ))
     
-    # 2. Run SARSA neural network baseline
+    # 2. Run Deep RL experiments (DQN variants)
     if not args.no_nn:
-        logger.info("Starting Experiment 2: Neural Network Baselines")
+        logger.info("Starting Experiment 2: Deep RL Methods (DQN variants)")
+        results.append(run_command(
+            [python, "scripts/run_baselines.py",
+             "--episodes", str(episodes),
+             "--seed", str(args.seed),
+             "--algo", "deep"],
+            "Deep RL Experiments (DQN + Double DQN + Dueling DQN)"
+        ))
+        
+        # 3. Run SARSA neural network baseline
+        logger.info("Starting Experiment 3: Neural Network SARSA")
         results.append(run_command(
             [python, "scripts/sarsa_baseline.py",
              "--episodes", str(min(episodes * 2, 2000)),
@@ -150,8 +160,8 @@ def main():
             "Neural Network SARSA Baseline"
         ))
         
-        # 3. Run DQN baseline
-        logger.info("Starting Experiment 3: DQN (stable-baselines3)")
+        # 4. Run SB3 DQN baseline
+        logger.info("Starting Experiment 4: SB3 DQN")
         results.append(run_command(
             [python, "scripts/baseline_expanded.py",
              "--algo", "dqn",
@@ -160,8 +170,8 @@ def main():
             "DQN Baseline (stable-baselines3)"
         ))
         
-        # 4. Run PPO baseline
-        logger.info("Starting Experiment 4: PPO (stable-baselines3)")
+        # 5. Run SB3 PPO baseline
+        logger.info("Starting Experiment 5: SB3 PPO")
         results.append(run_command(
             [python, "scripts/baseline_expanded.py",
              "--algo", "ppo",

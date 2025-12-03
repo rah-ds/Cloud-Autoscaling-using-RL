@@ -38,12 +38,19 @@ from agent.baseline_policies import (
     RandomPolicy,
     ThresholdPolicy,
 )
+from agent.deep_rl_agents import (
+    DQNAgent,
+    DoubleDQNAgent,
+    DuelingDQNAgent,
+    train_dqn,
+    evaluate_dqn,
+)
 
 
-def setup_logging(output_dir: Path, log_level: str = "INFO") -> logging.Logger:
+def setup_logging(log_level: str = "INFO") -> logging.Logger:
     """Configure logging with both file and console handlers."""
-    # Create logs directory
-    log_dir = output_dir / "logs"
+    # Create logs directory - always use artifacts/logs
+    log_dir = PROJECT_ROOT / "artifacts" / "logs"
     log_dir.mkdir(parents=True, exist_ok=True)
     
     # Create timestamp for log file
@@ -383,11 +390,107 @@ def run_hyperparameter_sweep(
     return results
 
 
-def save_results(results: Dict[str, Any], output_dir: Path) -> None:
+def train_dqn_agent(
+    env: CloudAutoscalingEnv,
+    n_episodes: int = 1000,
+    agent_type: str = "dqn",
+    learning_rate: float = 1e-3,
+    discount_factor: float = 0.99,
+    epsilon: float = 1.0,
+    epsilon_decay: float = 0.995,
+    seed: int = 42
+) -> Dict[str, Any]:
+    """Train DQN-based agent and return metrics."""
+    logger.info("=" * 50)
+    logger.info(f"Training {agent_type.upper()} Agent")
+    logger.info(f"  Episodes: {n_episodes}")
+    logger.info(f"  Learning rate: {learning_rate}")
+    logger.info(f"  Discount factor: {discount_factor}")
+    logger.info(f"  Initial epsilon: {epsilon}")
+    logger.info(f"  Epsilon decay: {epsilon_decay}")
+    logger.info(f"  Seed: {seed}")
+    
+    # Get state dimension (number of elements in observation vector)
+    state_dim = len(env.observation_space.nvec)
+    action_dim = env.action_space.n
+    
+    # Create appropriate agent
+    agent_classes = {
+        "dqn": DQNAgent,
+        "double_dqn": DoubleDQNAgent,
+        "dueling_dqn": DuelingDQNAgent,
+    }
+    
+    AgentClass = agent_classes.get(agent_type, DQNAgent)
+    
+    agent = AgentClass(
+        state_dim=state_dim,
+        action_dim=action_dim,
+        hidden_dims=(128, 128),
+        learning_rate=learning_rate,
+        discount_factor=discount_factor,
+        epsilon=epsilon,
+        epsilon_decay=epsilon_decay,
+        epsilon_min=0.01,
+        batch_size=64,
+        buffer_size=10000,
+        target_update_freq=100,
+        seed=seed,
+    )
+    
+    episode_rewards = []
+    episode_sla = []
+    
+    for ep in tqdm(range(n_episodes), desc=f"{agent_type.upper()}", leave=False):
+        state, info = env.reset()
+        # Flatten state for neural network
+        state_flat = state.astype(np.float32).flatten()
+        total_reward = 0
+        sla_violations = 0
+        done = False
+        
+        while not done:
+            action = agent.select_action(state_flat)
+            next_state, reward, terminated, truncated, info = env.step(action)
+            next_state_flat = next_state.astype(np.float32).flatten()
+            
+            # DQN update
+            agent.update(state_flat, action, reward, next_state_flat, terminated)
+            
+            total_reward += reward
+            sla_violations += info.get("sla_violation", 0)
+            state_flat = next_state_flat
+            done = terminated or truncated
+        
+        agent.decay_epsilon()
+        episode_rewards.append(total_reward)
+        episode_sla.append(sla_violations)
+        
+        if (ep + 1) % 100 == 0:
+            avg_reward = np.mean(episode_rewards[-100:])
+            avg_sla = np.mean(episode_sla[-100:])
+            logger.info(f"  Episode {ep+1}/{n_episodes}: avg_reward={avg_reward:.2f}, avg_sla={avg_sla:.2f}, eps={agent.epsilon:.3f}")
+    
+    final_reward = np.mean(episode_rewards[-100:]) if len(episode_rewards) >= 100 else np.mean(episode_rewards)
+    final_sla = np.mean(episode_sla[-100:]) if len(episode_sla) >= 100 else np.mean(episode_sla)
+    logger.info(f"{agent_type.upper()} training complete: final_reward={final_reward:.2f}, final_sla={final_sla:.2f}")
+    
+    return {
+        "agent": agent,
+        "episode_rewards": episode_rewards,
+        "episode_sla": episode_sla,
+        "final_epsilon": agent.epsilon,
+        "mean_reward": final_reward,
+        "mean_sla": final_sla,
+    }
+
+
+def save_results(results: Dict[str, Any], results_dir: Path, plots_dir: Path) -> None:
     """Save experiment results to JSON and plots."""
     logger.info("=" * 50)
     logger.info("Saving experiment results")
-    output_dir.mkdir(parents=True, exist_ok=True)
+    results_dir.mkdir(parents=True, exist_ok=True)
+    plots_dir.mkdir(parents=True, exist_ok=True)
     
     # Save JSON results (excluding non-serializable objects)
     json_results = {}
@@ -401,7 +504,7 @@ def save_results(results: Dict[str, Any], output_dir: Path) -> None:
             json_results[key] = value
     
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    json_path = output_dir / f"results_{timestamp}.json"
+    json_path = results_dir / f"results_{timestamp}.json"
     
     with open(json_path, "w") as f:
         json.dump(json_results, f, indent=2, default=str)
@@ -451,6 +554,12 @@ def save_results(results: Dict[str, Any], output_dir: Path) -> None:
             algorithms.append("SARSA")
             rewards.append(results["sarsa"]["mean_reward"])
         
+        # Add deep RL results
+        for agent_type in ["dqn", "double_dqn", "dueling_dqn"]:
+            if agent_type in results:
+                algorithms.append(agent_type.upper().replace("_", " "))
+                rewards.append(results[agent_type]["mean_reward"])
+        
         colors = plt.cm.viridis(np.linspace(0.2, 0.8, len(algorithms)))
         ax.bar(algorithms, rewards, color=colors)
         ax.set_ylabel("Mean Reward")
@@ -458,7 +567,7 @@ def save_results(results: Dict[str, Any], output_dir: Path) -> None:
         ax.grid(True, alpha=0.3, axis='y')
         
         plt.tight_layout()
-        plot_path = output_dir / f"comparison_{timestamp}.png"
+        plot_path = plots_dir / f"comparison_{timestamp}.png"
         plt.savefig(plot_path, dpi=150)
         logger.info(f"Plot saved to {plot_path}")
         plt.close()
@@ -467,21 +576,23 @@ def save_results(results: Dict[str, Any], output_dir: Path) -> None:
 def main():
     parser = argparse.ArgumentParser(description="Run RL experiments for cloud autoscaling")
     parser.add_argument("--quick", action="store_true", help="Quick test run with fewer episodes")
-    parser.add_argument("--algo", choices=["all", "q-learning", "sarsa", "baselines"],
+    parser.add_argument("--algo", choices=["all", "tabular", "deep", "q-learning", "sarsa", "dqn", "double-dqn", "dueling-dqn", "baselines"],
                         default="all", help="Algorithm to run")
     parser.add_argument("--episodes", type=int, default=1000, help="Number of training episodes")
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
-    parser.add_argument("--output-dir", type=str, default="artifacts/results",
-                        help="Output directory for results")
     parser.add_argument("--log-level", type=str, default="INFO",
                         choices=["DEBUG", "INFO", "WARNING", "ERROR"],
                         help="Logging level")
     args = parser.parse_args()
     
-    # Setup logging
+    # Setup logging and output directories
     global logger
-    output_dir = PROJECT_ROOT / args.output_dir
-    logger = setup_logging(output_dir, args.log_level)
+    logger = setup_logging(args.log_level)
+    
+    results_dir = PROJECT_ROOT / "artifacts" / "results"
+    plots_dir = PROJECT_ROOT / "artifacts" / "plots"
+    results_dir.mkdir(parents=True, exist_ok=True)
+    plots_dir.mkdir(parents=True, exist_ok=True)
     
     # Adjust for quick mode
     n_episodes = 100 if args.quick else args.episodes
@@ -493,7 +604,8 @@ def main():
     logger.info(f"  Episodes: {n_episodes}")
     logger.info(f"  Algorithm: {args.algo}")
     logger.info(f"  Seed: {args.seed}")
-    logger.info(f"  Output directory: {output_dir}")
+    logger.info(f"  Results directory: {results_dir}")
+    logger.info(f"  Plots directory: {plots_dir}")
     logger.info(f"  Quick mode: {args.quick}")
     logger.info(f"  Log level: {args.log_level}")
     
@@ -508,24 +620,52 @@ def main():
     results = {}
     start_time = datetime.now()
     
+    # Determine which algorithms to run
+    run_baselines = args.algo in ["all", "tabular", "baselines"]
+    run_tabular = args.algo in ["all", "tabular"]
+    run_deep = args.algo in ["all", "deep"]
+    run_q_learning = args.algo in ["all", "tabular", "q-learning"]
+    run_sarsa = args.algo in ["all", "tabular", "sarsa"]
+    run_dqn = args.algo in ["all", "deep", "dqn"]
+    run_double_dqn = args.algo in ["all", "deep", "double-dqn"]
+    run_dueling_dqn = args.algo in ["all", "deep", "dueling-dqn"]
+    
     # Run baselines
-    if args.algo in ["all", "baselines"]:
+    if run_baselines:
         results["baselines"] = run_baseline_policies(env, n_episodes=min(100, n_episodes))
     
     # Run Q-Learning
-    if args.algo in ["all", "q-learning"]:
+    if run_q_learning:
         results["q_learning"] = train_q_learning_agent(
             env, n_episodes=n_episodes, seed=args.seed
         )
     
     # Run SARSA
-    if args.algo in ["all", "sarsa"]:
+    if run_sarsa:
         results["sarsa"] = train_sarsa_agent(
             env, n_episodes=n_episodes, seed=args.seed
         )
     
-    # Save results
-    save_results(results, output_dir)
+    # Run DQN
+    if run_dqn:
+        results["dqn"] = train_dqn_agent(
+            env, n_episodes=n_episodes, agent_type="dqn", seed=args.seed
+        )
+    
+    # Run Double DQN
+    if run_double_dqn:
+        results["double_dqn"] = train_dqn_agent(
+            env, n_episodes=n_episodes, agent_type="double_dqn", seed=args.seed
+        )
+    
+    # Run Dueling DQN
+    if run_dueling_dqn:
+        results["dueling_dqn"] = train_dqn_agent(
+            env, n_episodes=n_episodes, agent_type="dueling_dqn", seed=args.seed
+        )
+    
+    # Save results and plots
+    save_results(results, results_dir, plots_dir)
     
     # Calculate elapsed time
     elapsed_time = datetime.now() - start_time
@@ -545,6 +685,16 @@ def main():
     
     if "sarsa" in results:
         logger.info(f"SARSA: reward={results['sarsa']['mean_reward']:.2f}, sla={results['sarsa']['mean_sla']:.2f}")
+    
+    # Deep RL results
+    if "dqn" in results:
+        logger.info(f"DQN: reward={results['dqn']['mean_reward']:.2f}, sla={results['dqn']['mean_sla']:.2f}")
+    
+    if "double_dqn" in results:
+        logger.info(f"Double DQN: reward={results['double_dqn']['mean_reward']:.2f}, sla={results['double_dqn']['mean_sla']:.2f}")
+    
+    if "dueling_dqn" in results:
+        logger.info(f"Dueling DQN: reward={results['dueling_dqn']['mean_reward']:.2f}, sla={results['dueling_dqn']['mean_sla']:.2f}")
     
     logger.info("=" * 60)
     logger.info(f"Total runtime: {elapsed_time}")

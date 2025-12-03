@@ -16,7 +16,7 @@ paths:
   output_dir: "artifacts/results"
   models_dir: "artifacts/models"
   plots_dir: "artifacts/plots"
-  logs_dir: "artifacts/results/logs"
+  logs_dir: "artifacts/logs"
 
 # Environment Configuration
 environment:

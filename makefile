@@ -1,98 +1,109 @@
-.PHONY: help install sync format lint test clean run-experiments
+.PHONY: help setup test lint format clean experiments ablations all quick
 
-help: ## Show this help message
-	@echo 'Usage: make [target]'
-	@echo ''
-	@echo 'Available targets:'
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-20s %s\n", $$1, $$2}'
+help: ## Show available commands
+	@echo ""
+	@echo "Cloud Autoscaling RL - Available Commands"
+	@echo "==========================================="
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-20s %s\n", $$1, $$2}'
+	@echo ""
 
-install: ## Install uv package manager (requires brew on macOS or curl on Linux)
-	@command -v uv >/dev/null 2>&1 || { \
-		if command -v brew >/dev/null 2>&1; then \
-			echo "Installing uv via brew..."; \
-			brew install uv; \
-		else \
-			echo "Installing uv via curl..."; \
-			curl -LsSf https://astral.sh/uv/install.sh | sh; \
-		fi; \
-	}
-	@echo "uv is installed"
+# =============================================================================
+# Setup & Environment
+# =============================================================================
 
-setup: install ## Set up Python environment with uv
+setup: ## Install uv and set up Python environment
+	@command -v uv >/dev/null 2>&1 || curl -LsSf https://astral.sh/uv/install.sh | sh
 	uv venv --python=3.12
 	uv sync
-	@echo "Environment setup complete. Activate with: source .venv/bin/activate"
+	@echo "Environment ready. Run: source .venv/bin/activate"
 
-sync: ## Sync dependencies with uv
+sync: ## Sync dependencies
 	uv sync
 
-format: ## Format code with ruff
-	uv run ruff format .
+# =============================================================================
+# Code Quality
+# =============================================================================
 
-lint: ## Lint code with ruff
-	uv run ruff check .
-
-lint-fix: ## Lint and fix code with ruff
-	uv run ruff check --fix .
-
-test: ## Run all tests with pytest
+test: ## Run all tests
 	uv run pytest tests/ -v
 
-test-quick: ## Run tests quickly (no verbose)
-	uv run pytest tests/ -q
-
-test-cov: ## Run tests with coverage report
+test-cov: ## Run tests with coverage
 	uv run pytest tests/ -v --cov=src --cov-report=term-missing
 
-test-env: ## Run environment tests only
-	uv run pytest tests/test_gym_mmpp_env.py tests/test_cloud_autoscaling_env.py -v
+lint: ## Check code style
+	uv run ruff check .
 
-test-agents: ## Run agent tests only
-	uv run pytest tests/test_agents.py -v
+format: ## Format and fix code
+	uv run ruff format .
+	uv run ruff check --fix .
 
-test-policies: ## Run baseline policy tests only
-	uv run pytest tests/test_baseline_policies.py -v
+# =============================================================================
+# Experiments (with tqdm progress bars)
+# =============================================================================
 
-clean: ## Remove virtual environment and cache files
-	rm -rf .venv
-	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
-	find . -type d -name ".ruff_cache" -exec rm -rf {} + 2>/dev/null || true
-	find . -type f -name "*.pyc" -delete 2>/dev/null || true
+experiments: ## Run full experiment suite (~10 min)
+	@echo "Running full experiment suite..."
+	uv run python scripts/run_baselines.py --algo all --episodes 1000
 
-# ============================================================================
-# Experiment Targets
-# ============================================================================
-
-run-experiments: ## Run all RL experiments (Q-Learning, SARSA, baselines)
-	uv run python scripts/run_baselines.py --algo all
-
-run-experiments-quick: ## Quick test run of experiments (fewer episodes)
+experiments-quick: ## Quick experiment test (~2 min)
+	@echo "Running quick experiments..."
 	uv run python scripts/run_baselines.py --algo all --quick
 
-run-all: ## Run complete experiment suite including neural networks
-	uv run python scripts/run_all_experiments.py
+experiments-tabular: ## Run Q-Learning and SARSA only
+	uv run python scripts/run_baselines.py --algo tabular
 
-run-all-quick: ## Quick test of complete experiment suite
-	uv run python scripts/run_all_experiments.py --quick
+experiments-deep: ## Run DQN variants only
+	uv run python scripts/run_baselines.py --algo deep
 
-run-sarsa-nn: ## Train neural network SARSA baseline
-	uv run python scripts/sarsa_baseline.py
+# =============================================================================
+# Ablation Studies (with tqdm progress bars)
+# =============================================================================
 
-run-dqn: ## Train DQN baseline (requires stable-baselines3)
-	uv run python scripts/baseline_expanded.py --algo dqn
+ablations: ## Run all ablation studies (~15 min)
+	@echo "Running ablation studies..."
+	uv run python scripts/run_ablations.py --study all
 
-run-ppo: ## Train PPO baseline (requires stable-baselines3)
-	uv run python scripts/baseline_expanded.py --algo ppo
+ablations-quick: ## Quick ablation test (~1 min)
+	uv run python scripts/run_ablations.py --quick --study lr
 
-# ============================================================================
-# Jupyter & Development
-# ============================================================================
+ablations-grid: ## Run hyperparameter grid search
+	uv run python scripts/run_ablations.py --study grid
 
-jupyter: ## Start Jupyter notebook server
-	uv run jupyter notebook
+# =============================================================================
+# Full Pipeline
+# =============================================================================
 
-pre-commit-install: ## Install pre-commit hooks
-	uv run pre-commit install
+all: test experiments ablations ## Run tests + experiments + ablations
+	@echo "All tasks complete!"
 
-pre-commit-run: ## Run pre-commit hooks on all files
-	uv run pre-commit run --all-files
+quick: ## Quick run of entire pipeline (~5 min)
+	@echo "Running quick pipeline..."
+	uv run pytest tests/ -q
+	uv run python scripts/run_baselines.py --algo tabular --quick
+	uv run python scripts/run_ablations.py --quick --study lr
+	@echo "Quick pipeline complete!"
+
+# =============================================================================
+# Cleanup
+# =============================================================================
+
+clean: ## Remove cache files
+	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+	find . -type d -name ".ruff_cache" -exec rm -rf {} + 2>/dev/null || true
+	find . -type d -name ".pytest_cache" -exec rm -rf {} + 2>/dev/null || true
+	@echo "Cache cleaned"
+
+clean-artifacts: ## Remove generated artifacts
+	rm -rf artifacts/logs/* artifacts/plots/* artifacts/results/* artifacts/models/*
+	@echo "Artifacts cleaned"
+
+clean-all: clean clean-artifacts ## Full cleanup (cache + artifacts + venv)
+	rm -rf .venv htmlcov .coverage
+	@echo "Full cleanup complete"
+
+# =============================================================================
+# Development
+# =============================================================================
+
+jupyter: ## Start Jupyter notebook
+	uv run jupyter notebook notebooks/
