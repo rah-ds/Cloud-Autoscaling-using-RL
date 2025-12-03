@@ -37,6 +37,7 @@ class CloudAutoscalingEnv(gym.Env):
         workload_data: Optional[np.ndarray] = None,
         max_capacity: int = 5,
         min_capacity: int = 1,
+        capacity_unit: float = 20.0,  # Each capacity unit handles this much demand
         optimal_util_min: float = 0.40,
         optimal_util_max: float = 0.80,
         sla_violation_threshold: float = 0.90,
@@ -48,6 +49,7 @@ class CloudAutoscalingEnv(gym.Env):
         # Environment parameters
         self.max_capacity = max_capacity
         self.min_capacity = min_capacity
+        self.capacity_unit = capacity_unit  # Demand capacity per unit (e.g., 20 req/s per VM)
         self.optimal_util_min = optimal_util_min
         self.optimal_util_max = optimal_util_max
         self.sla_violation_threshold = sla_violation_threshold
@@ -122,8 +124,14 @@ class CloudAutoscalingEnv(gym.Env):
             return 1  # Flat
     
     def _calculate_utilization(self) -> float:
-        """Calculate current utilization as demand / capacity."""
-        return self.current_demand / self.current_capacity
+        """Calculate current utilization as demand / effective_capacity.
+        
+        Each capacity unit represents `capacity_unit` amount of demand handling
+        capability. For example, if capacity_unit=20 and we have 5 units,
+        effective capacity is 100, matching a demand range of ~10-100.
+        """
+        effective_capacity = self.current_capacity * self.capacity_unit
+        return self.current_demand / effective_capacity
     
     def _calculate_reward(self, action: int) -> float:
         """

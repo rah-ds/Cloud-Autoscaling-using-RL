@@ -64,6 +64,20 @@ deep-10k: ## Extended training with 10000 episodes (~90 min)
 	uv run python scripts/run_baselines.py --algo all --episodes 10000
 
 # =============================================================================
+# Multi-Seed Statistical Analysis
+# =============================================================================
+
+multiseed: ## Run 5-seed experiment with stats (~30 min)
+	@echo "Running multi-seed experiments..."
+	uv run python scripts/run_multiseed.py --seeds 5 --episodes 500
+
+multiseed-quick: ## Quick 3-seed test (~5 min)
+	uv run python scripts/run_multiseed.py --quick
+
+multiseed-full: ## Full 10-seed experiment (~60 min)
+	uv run python scripts/run_multiseed.py --seeds 10 --episodes 1000
+
+# =============================================================================
 # Ablation Studies (with tqdm progress bars)
 # =============================================================================
 
@@ -198,3 +212,16 @@ summary: ## Show experiment status and what hasn't been run
 
 jupyter: ## Start Jupyter notebook
 	uv run jupyter notebook notebooks/
+
+report: ## Generate report with latest results
+	uv run python scripts/generate_report.py
+	@echo "Report saved to docs/report/report.md"
+
+figures: ## Generate publication-ready figures (PDF)
+	uv run python scripts/generate_figures.py --style paper
+
+figures-poster: ## Generate figures for poster (PNG, larger)
+	uv run python scripts/generate_figures.py --style poster
+
+figures-slides: ## Generate figures for presentations
+	uv run python scripts/generate_figures.py --style presentation

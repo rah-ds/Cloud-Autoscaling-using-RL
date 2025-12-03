@@ -25,3 +25,5 @@ artifacts/results/
 artifacts/models/
 # Keep demo plots and sample outputs
 !artifacts/plots/.gitkeep
+artifacts/plots/*
+docs/report
