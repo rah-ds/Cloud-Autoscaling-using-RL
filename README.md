@@ -214,6 +214,10 @@ These rules help ensure:
 
 ## Important Links
 
+- [online power point presentation](https://docs.google.com/presentation/d/1JsF84O8dYrtZroLkL320MNY7MJDpCtTDYfo3DwM1zjM/edit?slide=id.p#slide=id.p)
+- [overleaf working link](https://www.overleaf.com/project/692069c4bd002e28b564dbc8)
+
+
 - The [class Canvas](https://canvas.its.virginia.edu/courses/159418/modules)
 - The class repo can be found [here](https://github.com/UVADS/reinforcement_learning_online_msds/commits/main/)
 - **Rivanna HPC Resources** (for long-running experiments):
