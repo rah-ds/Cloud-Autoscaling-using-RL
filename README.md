@@ -5,8 +5,6 @@
 ![Python 3.12](https://img.shields.io/badge/Python-3.12-black?logo=python&logoColor=blue)
 [![Coverage](https://img.shields.io/badge/coverage-35%25-yellow)](tests/)
 
-## Objective
-
 This project aims to solve for when to scale and will explore whether reinforcement learning can make smarter decisions about cloud resource auto-scaling than today's simple threshold rules.
 
 We aim to build a small simulator where cloud workloads vary over time and then have an RL agent decide when to add or remove capacity. The goal is to see if reinforcement learning methods like SARSA and Q-learning can keep performance high while avoiding unnecessary cost.
@@ -56,6 +54,8 @@ This project investigates whether these theoretical benefits translate to measur
     synthetic data
 
 ## Results
+
+📖 **[Model Architectures & Metrics Documentation](docs/model_architectures.md)** — Detailed descriptions of all algorithms, neural network architectures, and evaluation metrics.
 
 Our experiments compare Deep RL agents (DQN, Double DQN, Dueling DQN) trained over 2000 episodes. Click to expand each visualization:
 
@@ -134,7 +134,7 @@ If you prefer to set up manually or don't have Make installed:
 # Install uv (macOS/Linux with Homebrew)
 brew install uv
 
-# Or install with curl
+# Or just install directly
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
 # Create virtual environment with Python 3.12
@@ -164,8 +164,8 @@ Cloud Autoscaling RL - Available Commands
   format               Format and fix code
   train                Run deep RL training (2000 episodes)
   quick                Quick test run (~2 min)
-  optimize             Run Optuna Bayesian optimization (50 trials)
-  optimize-quick       Quick optimization test (10 trials)
+  optimize             Run Optuna Bayesian optimization (50 trials) WIP
+  optimize-quick       Quick optimization test (10 trials) WIP
   clean                Remove cache files
   clean-artifacts      Remove generated artifacts
   summary              Show experiment summary
@@ -204,18 +204,6 @@ make pre-commit-run
 uv run pre-commit run --all-files
 ```
 
-### Branch Protection Rules
-
-To maintain code quality and collaboration standards, we recommend the following branch protection rules for the `main` branch:
-
-#### Required Settings
-
-- **Require pull request reviews before merging**: At least 1 approval required
-- **Require status checks to pass before merging**:
-  - Ruff linting checks
-  - Pre-commit hook validation
-- **Require branches to be up to date before merging**: Ensures changes are tested against latest code
-- **Require conversation resolution before merging**: All review comments must be addressed
 
 ## Important Links
 
