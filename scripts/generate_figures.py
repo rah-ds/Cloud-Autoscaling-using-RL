@@ -132,13 +132,35 @@ def setup_matplotlib_style(style_config: dict) -> None:
 # =============================================================================
 
 
+def convert_string_lists_to_float(data: dict) -> dict:
+    """Recursively convert string numbers to floats in results dict."""
+    if isinstance(data, dict):
+        return {k: convert_string_lists_to_float(v) for k, v in data.items()}
+    elif isinstance(data, list):
+        if data and isinstance(data[0], str):
+            try:
+                return [float(x) for x in data]
+            except (ValueError, TypeError):
+                return data
+        return [convert_string_lists_to_float(x) for x in data]
+    elif isinstance(data, str):
+        # Try to convert string numbers to float
+        try:
+            return float(data)
+        except (ValueError, TypeError):
+            return data
+    return data
+
+
 def load_latest_results() -> Optional[dict]:
     """Load the most recent experiment results."""
     result_files = sorted(RESULTS_DIR.glob("results_*.json"), reverse=True)
     if not result_files:
         return None
     with open(result_files[0], encoding="utf-8") as f:
-        return json.load(f)
+        data = json.load(f)
+    # Convert any string lists to float (handles serialization quirks)
+    return convert_string_lists_to_float(data)
 
 
 def load_multiseed_results() -> Optional[dict]:
@@ -780,6 +802,251 @@ def create_summary_figure(
     print(f"  ✓ Summary figure: summary_figure.{style_config['format']}")
 
 
+def create_capacity_vs_demand_plot(
+    style_config: dict,
+    output_path: Path,
+    n_steps: int = 200,
+) -> None:
+    """
+    Create capacity vs demand trajectory visualization.
+    
+    Runs a sample episode for each trained agent and plots:
+    - Demand over time
+    - Capacity decisions over time
+    - SLA violation threshold
+    """
+    import pickle
+    from agent.cloud_autoscaling_env import CloudAutoscalingEnv
+    
+    MODELS_DIR = PROJECT_ROOT / "artifacts" / "models"
+    
+    # Find available models
+    model_files = list(MODELS_DIR.glob("*.pkl"))
+    if not model_files:
+        print("  ⚠ No trained models found, skipping capacity vs demand plot...")
+        return
+    
+    # Generate workload
+    np.random.seed(42)
+    t = np.linspace(0, 4 * np.pi, n_steps)
+    workload = 50 + 30 * np.sin(t) + 5 * np.random.randn(n_steps)
+    workload = np.clip(workload, 10, 100)
+    
+    # Create environment
+    env = CloudAutoscalingEnv(workload_data=workload, seed=42)
+    
+    # Collect trajectories for each agent
+    trajectories = {}
+    
+    for model_file in model_files:
+        try:
+            with open(model_file, "rb") as f:
+                save_data = pickle.load(f)
+            agent = save_data.get("agent")
+            if agent is None:
+                continue
+                
+            # Get algorithm name
+            algo_name = save_data.get("algorithm", model_file.stem.split("_")[0])
+            
+            # Skip if we already have this algorithm (prefer latest)
+            if algo_name in trajectories:
+                continue
+            
+            # Run episode
+            state, _ = env.reset()
+            demands = []
+            capacities = []
+            utilizations = []
+            sla_violations = []
+            
+            for step in range(n_steps - 1):
+                # Get action from agent (use training=False for greedy/evaluation mode)
+                if hasattr(agent, "select_action"):
+                    try:
+                        # Try training=False for RL agents
+                        action = agent.select_action(state, training=False)
+                    except TypeError:
+                        try:
+                            # Try info=None for baseline policies
+                            action = agent.select_action(state, info=None)
+                        except TypeError:
+                            # Fall back to state-only
+                            action = agent.select_action(state)
+                elif hasattr(agent, "act"):
+                    try:
+                        action = agent.act(state, eps=0.0)
+                    except TypeError:
+                        action = agent.act(state)
+                elif hasattr(agent, "get_action"):
+                    action = agent.get_action(state)
+                else:
+                    action = 1  # Default to hold
+                
+                next_state, reward, terminated, truncated, info = env.step(action)
+                
+                demands.append(info.get("demand", env.current_demand))
+                capacities.append(info.get("capacity", env.current_capacity) * env.capacity_unit)
+                utilizations.append(info.get("utilization", 0))
+                sla_violations.append(info.get("sla_violation", 0))
+                
+                state = next_state
+                if terminated or truncated:
+                    break
+            
+            trajectories[algo_name] = {
+                "demands": demands,
+                "capacities": capacities,
+                "utilizations": utilizations,
+                "sla_violations": sla_violations,
+            }
+            
+        except Exception as e:
+            print(f"  ⚠ Error loading {model_file.name}: {e}")
+            continue
+    
+    if not trajectories:
+        print("  ⚠ No valid trajectories collected, skipping...")
+        return
+    
+    # Create figure with 2 subplots
+    n_agents = len(trajectories)
+    fig, axes = plt.subplots(2, 1, figsize=(12, 8), sharex=True)
+    
+    # Plot 1: Capacity vs Demand for all agents
+    ax1 = axes[0]
+    steps = np.arange(len(list(trajectories.values())[0]["demands"]))
+    
+    # Plot demand (same for all)
+    first_traj = list(trajectories.values())[0]
+    ax1.fill_between(steps, 0, first_traj["demands"], alpha=0.3, color="gray", label="Demand")
+    
+    # Plot capacity for each agent
+    for agent_name, traj in trajectories.items():
+        agent_key = agent_name.lower().replace("-", "_").replace(" ", "_")
+        color = COLORS.get(agent_key, "#999999")
+        display_name = AGENT_DISPLAY_NAMES.get(agent_key, agent_name)
+        ax1.plot(
+            steps[:len(traj["capacities"])],
+            traj["capacities"],
+            label=f"{display_name} Capacity",
+            color=color,
+            linewidth=style_config["linewidth"],
+        )
+    
+    ax1.set_ylabel("Demand / Capacity")
+    ax1.set_title("(a) Capacity vs Demand Over Time")
+    ax1.legend(loc="upper right", ncol=2)
+    ax1.grid(True, alpha=0.3)
+    
+    # Plot 2: Utilization with SLA threshold
+    ax2 = axes[1]
+    sla_threshold = env.sla_violation_threshold
+    
+    for agent_name, traj in trajectories.items():
+        agent_key = agent_name.lower().replace("-", "_").replace(" ", "_")
+        color = COLORS.get(agent_key, "#999999")
+        display_name = AGENT_DISPLAY_NAMES.get(agent_key, agent_name)
+        ax2.plot(
+            steps[:len(traj["utilizations"])],
+            traj["utilizations"],
+            label=display_name,
+            color=color,
+            linewidth=style_config["linewidth"],
+            alpha=0.8,
+        )
+    
+    # Add SLA threshold line
+    ax2.axhline(
+        sla_threshold,
+        color="red",
+        linestyle="--",
+        linewidth=2,
+        label=f"SLA Threshold ({sla_threshold:.0%})",
+    )
+    ax2.axhline(
+        0.6,  # Target utilization
+        color="green",
+        linestyle="--",
+        linewidth=1.5,
+        label="Target (60%)",
+    )
+    
+    ax2.set_xlabel("Time Step")
+    ax2.set_ylabel("Utilization")
+    ax2.set_title("(b) Utilization vs SLA Threshold")
+    ax2.legend(loc="upper right", ncol=2)
+    ax2.set_ylim(0, 1.5)
+    ax2.grid(True, alpha=0.3)
+    
+    plt.tight_layout()
+    plt.savefig(output_path / f"capacity_vs_demand.{style_config['format']}")
+    plt.close()
+    print(f"  ✓ Capacity vs demand: capacity_vs_demand.{style_config['format']}")
+
+
+def create_workload_comparison_plot(
+    style_config: dict,
+    output_path: Path,
+) -> None:
+    """
+    Create visualization comparing different workload patterns.
+    
+    Shows smooth, bursty, and seasonal workload transformations.
+    """
+    try:
+        from env_configs import transform_workload
+    except ImportError:
+        print("  ⚠ env_configs not available, skipping workload comparison...")
+        return
+    
+    import pandas as pd
+    
+    # Generate base workload
+    np.random.seed(42)
+    n_steps = 500
+    t = np.linspace(0, 4 * np.pi, n_steps)
+    base_cpu = 0.5 + 0.2 * np.sin(t) + 0.05 * np.random.randn(n_steps)
+    base_cpu = np.clip(base_cpu, 0.1, 0.9)
+    
+    df_base = pd.DataFrame({"avg_cpu": base_cpu})
+    
+    # Transform to different patterns
+    workloads = {
+        "Smooth": transform_workload(df_base, "smooth")["avg_cpu"].values,
+        "Bursty": transform_workload(df_base, "bursty")["avg_cpu"].values,
+        "Seasonal": transform_workload(df_base, "seasonal")["avg_cpu"].values,
+    }
+    
+    # Create figure
+    fig, axes = plt.subplots(3, 1, figsize=(12, 8), sharex=True)
+    
+    colors = {"Smooth": "#0077BB", "Bursty": "#EE7733", "Seasonal": "#009988"}
+    
+    for idx, (name, cpu) in enumerate(workloads.items()):
+        ax = axes[idx]
+        steps = np.arange(len(cpu))
+        
+        ax.fill_between(steps, 0, cpu, alpha=0.3, color=colors[name])
+        ax.plot(steps, cpu, color=colors[name], linewidth=1.5, label=name)
+        
+        # Add SLA threshold
+        ax.axhline(0.8, color="red", linestyle="--", linewidth=1, alpha=0.7)
+        
+        ax.set_ylabel("CPU Utilization")
+        ax.set_title(f"{name} Workload Pattern")
+        ax.set_ylim(0, 1.1)
+        ax.legend(loc="upper right")
+        ax.grid(True, alpha=0.3)
+    
+    axes[-1].set_xlabel("Time Step")
+    
+    plt.tight_layout()
+    plt.savefig(output_path / f"workload_patterns.{style_config['format']}")
+    plt.close()
+    print(f"  ✓ Workload patterns: workload_patterns.{style_config['format']}")
+
+
 # =============================================================================
 # Main
 # =============================================================================
@@ -823,6 +1090,10 @@ def main():
     create_learning_curves_subplots(results, style_config, PLOTS_DIR)
     create_convergence_comparison(results, style_config, PLOTS_DIR)
     create_summary_figure(results, style_config, PLOTS_DIR)
+    
+    # Trajectory visualizations
+    create_capacity_vs_demand_plot(style_config, PLOTS_DIR)
+    create_workload_comparison_plot(style_config, PLOTS_DIR)
 
     if multiseed_results:
         create_multiseed_comparison(multiseed_results, style_config, PLOTS_DIR)

@@ -1,4 +1,4 @@
-.PHONY: help setup test lint format clean train quick optimize summary
+.PHONY: help setup test lint format clean train quick optimize summary figures figures-paper figures-poster
 
 help: ## Show available commands
 	@echo ""
@@ -46,6 +46,34 @@ quick: ## Quick test run (~2 min)
 	@echo "Running quick test..."
 	uv run python scripts/run_baselines.py --algo deep --quick
 
+quick-all: ## Quick test of all algorithms on all workloads (~10 min)
+	@echo "Running quick test of all algorithms on all workloads..."
+	@for workload in smooth bursty seasonal; do \
+		echo ""; \
+		echo "=== Testing on $$workload workload ==="; \
+		uv run python scripts/run_baselines.py --algo all --quick --workload $$workload --no-wandb --force; \
+	done
+	@echo ""
+	@echo "All quick tests complete!"
+
+train-all-scenarios: ## Train all algorithms on all workloads (full run)
+	@echo "Training all algorithms on all workloads (this will take a while)..."
+	@for workload in smooth bursty seasonal; do \
+		echo ""; \
+		echo "=== Training on $$workload workload ==="; \
+		uv run python scripts/run_baselines.py --algo all --episodes 1000 --workload $$workload; \
+	done
+	@echo ""
+	@echo "All training complete!"
+
+train-bursty: ## Train on bursty workload only
+	@echo "Training on bursty workload..."
+	uv run python scripts/run_baselines.py --algo deep --episodes 1000 --workload bursty
+
+train-seasonal: ## Train on seasonal workload only
+	@echo "Training on seasonal workload..."
+	uv run python scripts/run_baselines.py --algo deep --episodes 1000 --workload seasonal
+
 optimize: ## Run Optuna Bayesian optimization (50 trials)
 	@echo "Running Optuna hyperparameter optimization..."
 	uv run python src/optuna_optimization.py --trials 50 --episodes 500
@@ -68,6 +96,28 @@ clean: ## Remove cache files
 clean-artifacts: ## Remove generated artifacts
 	rm -rf artifacts/logs/* artifacts/plots/* artifacts/results/* artifacts/models/*
 	@echo "Artifacts cleaned"
+
+# =============================================================================
+# Figures & Reports
+# =============================================================================
+
+figures: ## Generate publication-ready figures from latest results
+	@echo "Generating publication-ready figures..."
+	uv run python scripts/generate_figures.py --style presentation
+	@echo ""
+	@echo "📊 Figures saved to artifacts/plots/publication/"
+
+figures-paper: ## Generate paper-quality figures (PDF, 300 DPI)
+	@echo "Generating paper-quality figures..."
+	uv run python scripts/generate_figures.py --style paper
+	@echo ""
+	@echo "📄 Paper figures saved to artifacts/plots/publication/"
+
+figures-poster: ## Generate poster-quality figures (PNG, high DPI)
+	@echo "Generating poster-quality figures..."
+	uv run python scripts/generate_figures.py --style poster
+	@echo ""
+	@echo "🖼️  Poster figures saved to artifacts/plots/publication/"
 
 # =============================================================================
 # Utilities

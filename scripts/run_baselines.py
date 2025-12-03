@@ -46,6 +46,16 @@ from agent.deep_rl_agents import (
     DoubleDQNAgent,
     DuelingDQNAgent,
 )
+from agent.reinforce_agent import (
+    REINFORCEAgent,
+    REINFORCEWithBaseline,
+)
+from env_configs import (
+    get_config,
+    transform_workload,
+    ENV_CONFIGS,
+    AutoScalingEnvConfig,
+)
 from wandb_utils import (
     init_wandb,
     log_episode,
@@ -109,19 +119,27 @@ plt.rcParams["figure.figsize"] = (12, 6)
 # Models directory
 MODELS_DIR = PROJECT_ROOT / "artifacts" / "models"
 
+# Global workload type (set in main)
+WORKLOAD_TYPE = "smooth"
 
-def get_model_path(algorithm: str, n_episodes: int, date: str = None) -> Path:
-    """Generate model file path with algorithm, episodes, and date."""
+
+def get_model_path(algorithm: str, n_episodes: int, date: str = None, workload: str = None) -> Path:
+    """Generate model file path with algorithm, episodes, date, and optional workload type."""
     if date is None:
         date = datetime.now().strftime("%Y%m%d")
+    if workload and workload != "smooth":
+        return MODELS_DIR / f"{algorithm}_{workload}_{n_episodes}ep_{date}.pkl"
     return MODELS_DIR / f"{algorithm}_{n_episodes}ep_{date}.pkl"
 
 
-def find_existing_model(algorithm: str, n_episodes: int) -> Optional[Path]:
+def find_existing_model(algorithm: str, n_episodes: int, workload: str = None) -> Optional[Path]:
     """Find an existing model file for the given algorithm and episode count."""
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
     # Look for any model with matching algorithm and episodes (any date)
-    pattern = str(MODELS_DIR / f"{algorithm}_{n_episodes}ep_*.pkl")
+    if workload and workload != "smooth":
+        pattern = str(MODELS_DIR / f"{algorithm}_{workload}_{n_episodes}ep_*.pkl")
+    else:
+        pattern = str(MODELS_DIR / f"{algorithm}_{n_episodes}ep_*.pkl")
     matches = glob(pattern)
     if matches:
         # Return the most recent one
@@ -129,15 +147,17 @@ def find_existing_model(algorithm: str, n_episodes: int) -> Optional[Path]:
     return None
 
 
-def save_model(agent: Any, algorithm: str, n_episodes: int, metadata: Dict = None) -> Path:
+def save_model(agent: Any, algorithm: str, n_episodes: int, metadata: Dict = None, workload: str = None) -> Path:
     """Save a trained agent to disk."""
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
-    model_path = get_model_path(algorithm, n_episodes)
+    wl = workload or WORKLOAD_TYPE
+    model_path = get_model_path(algorithm, n_episodes, workload=wl)
     
     save_data = {
         "agent": agent,
         "algorithm": algorithm,
         "n_episodes": n_episodes,
+        "workload_type": wl,
         "saved_at": datetime.now().isoformat(),
         "metadata": metadata or {},
     }
@@ -268,7 +288,7 @@ def train_q_learning_agent(
     global USE_WANDB
 
     # Check for existing model
-    existing_model = find_existing_model("q_learning", n_episodes)
+    existing_model = find_existing_model("q_learning", n_episodes, workload=WORKLOAD_TYPE)
     if skip_if_exists and existing_model:
         logger.info("=" * 50)
         logger.info(f"Found existing Q-Learning model: {existing_model}")
@@ -405,7 +425,7 @@ def train_sarsa_agent(
     global USE_WANDB
 
     # Check for existing model
-    existing_model = find_existing_model("sarsa", n_episodes)
+    existing_model = find_existing_model("sarsa", n_episodes, workload=WORKLOAD_TYPE)
     if skip_if_exists and existing_model:
         logger.info("=" * 50)
         logger.info(f"Found existing SARSA model: {existing_model}")
@@ -612,7 +632,7 @@ def train_dqn_agent(
     global USE_WANDB
 
     # Check for existing model
-    existing_model = find_existing_model(agent_type, n_episodes)
+    existing_model = find_existing_model(agent_type, n_episodes, workload=WORKLOAD_TYPE)
     if skip_if_exists and existing_model:
         logger.info("=" * 50)
         logger.info(f"Found existing {agent_type.upper()} model: {existing_model}")
@@ -771,6 +791,191 @@ def train_dqn_agent(
     }
 
 
+def train_reinforce_agent(
+    env: CloudAutoscalingEnv,
+    n_episodes: int = 1000,
+    agent_type: str = "reinforce",
+    learning_rate: float = 1e-3,
+    discount_factor: float = 0.99,
+    seed: int = 42,
+    skip_if_exists: bool = True,
+    use_baseline: bool = True,
+) -> Dict[str, Any]:
+    """
+    Train REINFORCE (Policy Gradient) agent and return metrics.
+    
+    REINFORCE is a Monte Carlo policy gradient method that learns
+    a stochastic policy directly, unlike DQN which learns Q-values.
+    
+    Args:
+        env: The environment to train on
+        n_episodes: Number of training episodes
+        agent_type: 'reinforce' or 'reinforce_baseline'
+        learning_rate: Learning rate for policy network
+        discount_factor: Gamma for discounting future rewards
+        seed: Random seed
+        skip_if_exists: Skip training if model exists
+        use_baseline: Whether to use baseline for variance reduction
+    
+    Returns:
+        Dictionary with training results
+    """
+    global USE_WANDB
+
+    # Check for existing model
+    existing_model = find_existing_model(agent_type, n_episodes, workload=WORKLOAD_TYPE)
+    if skip_if_exists and existing_model:
+        logger.info("=" * 50)
+        logger.info(f"Found existing {agent_type.upper()} model: {existing_model}")
+        logger.info("Skipping training (use --force to retrain)")
+        agent, save_data = load_model(existing_model)
+        return {
+            "agent": agent,
+            "episode_rewards": save_data["metadata"].get("episode_rewards", []),
+            "episode_sla": save_data["metadata"].get("episode_sla", []),
+            "mean_reward": save_data["metadata"].get("mean_reward", 0),
+            "mean_sla": save_data["metadata"].get("mean_sla", 0),
+            "loaded_from": str(existing_model),
+        }
+
+    logger.info("=" * 50)
+    logger.info(f"Training {agent_type.upper()} Agent (Policy Gradient)")
+    logger.info(f"  Episodes: {n_episodes}")
+    logger.info(f"  Learning rate: {learning_rate}")
+    logger.info(f"  Discount factor: {discount_factor}")
+    logger.info(f"  Use baseline: {use_baseline}")
+
+    # Initialize wandb run
+    if USE_WANDB and WANDB_AVAILABLE:
+        init_wandb(
+            name=f"{agent_type}-lr{learning_rate:.0e}",
+            config={
+                "algorithm": agent_type,
+                "n_episodes": n_episodes,
+                "learning_rate": learning_rate,
+                "discount_factor": discount_factor,
+                "use_baseline": use_baseline,
+                "seed": seed,
+            },
+            tags=["policy-gradient", agent_type],
+            group="policy-gradient",
+            job_type="train",
+        )
+
+    # Get state dimension
+    state_dim = len(env.observation_space.nvec)
+    action_dim = env.action_space.n
+
+    # Create REINFORCE agent
+    if agent_type == "reinforce_baseline" or use_baseline:
+        agent = REINFORCEWithBaseline(
+            state_dim=state_dim,
+            action_dim=action_dim,
+            learning_rate=learning_rate,
+            gamma=discount_factor,
+            hidden_dim=128,
+        )
+    else:
+        agent = REINFORCEAgent(
+            state_dim=state_dim,
+            action_dim=action_dim,
+            learning_rate=learning_rate,
+            gamma=discount_factor,
+            hidden_dim=128,
+            use_baseline=False,
+        )
+
+    episode_rewards = []
+    episode_sla = []
+    episode_losses = []
+
+    for ep in tqdm(range(n_episodes), desc=f"{agent_type.upper()}", leave=False):
+        state, info = env.reset()
+        state_flat = state.astype(np.float32).flatten()
+        total_reward = 0
+        sla_violations = 0
+        done = False
+
+        while not done:
+            # Select action from policy
+            action = agent.select_action(state_flat, training=True)
+            next_state, reward, terminated, truncated, info = env.step(action)
+            next_state_flat = next_state.astype(np.float32).flatten()
+
+            # Store reward for REINFORCE update
+            agent.store_reward(reward)
+
+            total_reward += reward
+            sla_violations += info.get("sla_violation", 0)
+            state_flat = next_state_flat
+            done = terminated or truncated
+
+        # Update policy at end of episode (Monte Carlo)
+        loss = agent.update()
+        
+        episode_rewards.append(total_reward)
+        episode_sla.append(sla_violations)
+        episode_losses.append(loss)
+
+        # Log to wandb
+        if USE_WANDB and WANDB_AVAILABLE:
+            log_episode(
+                ep,
+                total_reward,
+                sla_violations,
+                epsilon=0.0,  # REINFORCE doesn't use epsilon
+                loss=loss,
+            )
+
+        if (ep + 1) % 100 == 0:
+            avg_reward = np.mean(episode_rewards[-100:])
+            avg_sla = np.mean(episode_sla[-100:])
+            avg_loss = np.mean(episode_losses[-100:])
+            logger.info(
+                f"  Episode {ep + 1}/{n_episodes}: avg_reward={avg_reward:.2f}, "
+                f"avg_sla={avg_sla:.2f}, avg_loss={avg_loss:.2f}"
+            )
+
+    final_reward = (
+        np.mean(episode_rewards[-100:])
+        if len(episode_rewards) >= 100
+        else np.mean(episode_rewards)
+    )
+    final_sla = (
+        np.mean(episode_sla[-100:]) if len(episode_sla) >= 100 else np.mean(episode_sla)
+    )
+    logger.info(
+        f"{agent_type.upper()} training complete: final_reward={final_reward:.2f}, final_sla={final_sla:.2f}"
+    )
+
+    # Log summary and finish wandb run
+    if USE_WANDB and WANDB_AVAILABLE:
+        log_summary(final_reward, final_sla, best_reward=max(episode_rewards))
+        finish_run()
+
+    # Save the trained model
+    metadata = {
+        "episode_rewards": episode_rewards,
+        "episode_sla": episode_sla,
+        "episode_losses": episode_losses,
+        "mean_reward": final_reward,
+        "mean_sla": final_sla,
+        "learning_rate": learning_rate,
+        "discount_factor": discount_factor,
+        "use_baseline": use_baseline,
+        "seed": seed,
+    }
+    save_model(agent, agent_type, n_episodes, metadata)
+
+    return {
+        "agent": agent,
+        "episode_rewards": episode_rewards,
+        "episode_sla": episode_sla,
+        "mean_reward": final_reward,
+        "mean_sla": final_sla,
+    }
+
+
 def save_results(results: Dict[str, Any], results_dir: Path, plots_dir: Path) -> None:
     """Save experiment results to JSON and plots."""
     logger.info("=" * 50)
@@ -882,6 +1087,7 @@ def main():
             "dqn",
             "double-dqn",
             "dueling-dqn",
+            "reinforce",
             "baselines",
         ],
         default="all",
@@ -902,6 +1108,13 @@ def main():
     parser.add_argument(
         "--force", action="store_true", help="Force retraining even if model exists"
     )
+    parser.add_argument(
+        "--workload",
+        type=str,
+        choices=["smooth", "bursty", "seasonal"],
+        default="smooth",
+        help="Workload pattern: smooth (baseline), bursty (spike injections), seasonal (periodic)",
+    )
     args = parser.parse_args()
 
     # Setup wandb
@@ -915,7 +1128,9 @@ def main():
 
     # Setup logging and output directories
     global logger
+    global WORKLOAD_TYPE
     logger = setup_logging(args.log_level)
+    WORKLOAD_TYPE = args.workload  # Set global workload type for model naming
 
     results_dir = PROJECT_ROOT / "artifacts" / "results"
     plots_dir = PROJECT_ROOT / "artifacts" / "plots"
@@ -931,6 +1146,7 @@ def main():
     logger.info("Configuration:")
     logger.info(f"  Episodes: {n_episodes}")
     logger.info(f"  Algorithm: {args.algo}")
+    logger.info(f"  Workload: {args.workload}")
     logger.info(f"  Seed: {args.seed}")
     logger.info(f"  Results directory: {results_dir}")
     logger.info(f"  Plots directory: {plots_dir}")
@@ -940,12 +1156,26 @@ def main():
         f"  Wandb logging: {'enabled' if USE_WANDB and WANDB_AVAILABLE else 'disabled'}"
     )
 
-    # Generate workload
+    # Generate workload and apply transformation
     logger.info("Generating synthetic workload data...")
     workload = generate_workload(length=1000, seed=args.seed)
     logger.debug(
-        f"Workload stats: min={workload.min():.2f}, max={workload.max():.2f}, mean={workload.mean():.2f}"
+        f"Base workload stats: min={workload.min():.2f}, max={workload.max():.2f}, mean={workload.mean():.2f}"
     )
+    
+    # Apply workload transformation based on config
+    import pandas as pd
+    df_workload = pd.DataFrame({"avg_cpu": workload / 100.0})  # Normalize to 0-1 for transform
+    df_transformed = transform_workload(df_workload, args.workload)
+    workload = (df_transformed["avg_cpu"].values * 100.0).astype(np.float32)  # Back to 0-100 scale
+    logger.info(f"Applied '{args.workload}' workload transformation")
+    logger.debug(
+        f"Transformed workload stats: min={workload.min():.2f}, max={workload.max():.2f}, mean={workload.mean():.2f}, std={workload.std():.2f}"
+    )
+    
+    # Get environment config for the workload type
+    env_config = get_config(args.workload)
+    logger.info(f"Environment config: cooldown={env_config.cooldown_period}, sla_weight={env_config.sla_weight}")
 
     env = CloudAutoscalingEnv(workload_data=workload, seed=args.seed)
     logger.info(
@@ -964,6 +1194,7 @@ def main():
     run_dqn = args.algo in ["all", "deep", "dqn"]
     run_double_dqn = args.algo in ["all", "deep", "double-dqn"]
     run_dueling_dqn = args.algo in ["all", "deep", "dueling-dqn"]
+    run_reinforce = args.algo in ["all", "deep", "reinforce"]
     
     # Whether to skip training if model exists
     skip_if_exists = not args.force
@@ -1011,6 +1242,14 @@ def main():
             env, n_episodes=n_episodes, agent_type="dueling_dqn", seed=args.seed,
             skip_if_exists=skip_if_exists
         )
+        save_results(results, results_dir, plots_dir)  # Save incrementally
+
+    # Run REINFORCE (Policy Gradient)
+    if run_reinforce:
+        results["reinforce"] = train_reinforce_agent(
+            env, n_episodes=n_episodes, agent_type="reinforce", seed=args.seed,
+            skip_if_exists=skip_if_exists, use_baseline=True
+        )
         save_results(results, results_dir, plots_dir)  # Save final results
 
     # Calculate elapsed time
@@ -1052,6 +1291,11 @@ def main():
     if "dueling_dqn" in results:
         logger.info(
             f"Dueling DQN: reward={results['dueling_dqn']['mean_reward']:.2f}, sla={results['dueling_dqn']['mean_sla']:.2f}"
+        )
+
+    if "reinforce" in results:
+        logger.info(
+            f"REINFORCE: reward={results['reinforce']['mean_reward']:.2f}, sla={results['reinforce']['mean_sla']:.2f}"
         )
 
     logger.info("=" * 60)

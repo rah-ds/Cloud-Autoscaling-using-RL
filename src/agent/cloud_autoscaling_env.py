@@ -84,6 +84,7 @@ class CloudAutoscalingEnv(gym.Env):
         self.total_cost = 0
         self.sla_violations = 0
         self.capacity_changes = 0
+        self._current_step_sla_violation = 0  # Per-step SLA flag
 
         if seed is not None:
             self.seed(seed)
@@ -150,6 +151,9 @@ class CloudAutoscalingEnv(gym.Env):
         """
         reward = 0.0
         utilization = self._calculate_utilization()
+        
+        # Track if THIS step had an SLA violation (for per-step reporting)
+        self._current_step_sla_violation = 0
 
         # 1. Optimal utilization reward
         if self.optimal_util_min <= utilization <= self.optimal_util_max:
@@ -164,6 +168,7 @@ class CloudAutoscalingEnv(gym.Env):
             penalty = -50.0 * (1 + (utilization - self.sla_violation_threshold))
             reward += penalty
             self.sla_violations += 1
+            self._current_step_sla_violation = 1  # Flag for this step
 
         # 3. Wasted capacity penalty
         if utilization < self.waste_threshold:
@@ -265,7 +270,8 @@ class CloudAutoscalingEnv(gym.Env):
                 "demand": self.current_demand,
                 "capacity": self.current_capacity,
                 "total_cost": self.total_cost,
-                "sla_violations": self.sla_violations,
+                "sla_violation": self._current_step_sla_violation,  # Per-step flag
+                "sla_violations": self.sla_violations,  # Cumulative count
                 "capacity_changes": self.capacity_changes,
             }
 
@@ -292,7 +298,8 @@ class CloudAutoscalingEnv(gym.Env):
             "demand": self.current_demand,
             "capacity": self.current_capacity,
             "total_cost": self.total_cost,
-            "sla_violations": self.sla_violations,
+            "sla_violation": self._current_step_sla_violation,  # Per-step flag (0 or 1)
+            "sla_violations": self.sla_violations,  # Cumulative count
             "capacity_changes": self.capacity_changes,
         }
 

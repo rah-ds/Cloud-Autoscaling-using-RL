@@ -336,6 +336,62 @@ Separates state value from action advantages for better learning.
 └─────────────────────────────────────────────────────────────────┘
 ```
 
+### REINFORCE (Policy Gradient)
+
+Unlike value-based methods (DQN), REINFORCE learns a policy directly.
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                   REINFORCE Architecture                         │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│   Key Difference from DQN:                                       │
+│   ┌─────────────────────────────────────────────────────────┐   │
+│   │  DQN:       Learns Q(s,a) → derives policy from values  │   │
+│   │  REINFORCE: Learns π(a|s) → policy directly             │   │
+│   └─────────────────────────────────────────────────────────┘   │
+│                                                                  │
+│   State Input                                                    │
+│   [util, capacity, trend, ...]                                  │
+│         │                                                        │
+│         ▼                                                        │
+│   ┌─────────────────┐                                           │
+│   │  Dense Layer    │  128 units, ReLU                          │
+│   │  (FC1)          │                                           │
+│   └────────┬────────┘                                           │
+│            │                                                     │
+│            ▼                                                     │
+│   ┌─────────────────┐                                           │
+│   │  Dense Layer    │  128 units, ReLU                          │
+│   │  (FC2)          │                                           │
+│   └────────┬────────┘                                           │
+│            │                                                     │
+│            ▼                                                     │
+│   ┌─────────────────┐                                           │
+│   │  Output Layer   │  3 units + Softmax                        │
+│   │  (Probabilities)│                                           │
+│   └────────┬────────┘                                           │
+│            │                                                     │
+│            ▼                                                     │
+│   P(Scale Down), P(Hold), P(Scale Up)  ← sum to 1.0            │
+│                                                                  │
+│   Training:                                                      │
+│   ┌─────────────────────────────────────────────────────────┐   │
+│   │  1. Run full episode, collect (s, a, r) trajectory     │   │
+│   │  2. Compute discounted returns: G_t = Σ γ^k r_{t+k}     │   │
+│   │  3. Policy gradient: ∇J = Σ ∇log π(a|s) · G_t          │   │
+│   │  4. Update: θ ← θ + α · ∇J                              │   │
+│   └─────────────────────────────────────────────────────────┘   │
+│                                                                  │
+│   Variance Reduction (Baseline):                                 │
+│   ┌─────────────────────────────────────────────────────────┐   │
+│   │  Instead of G_t, use advantage: A_t = G_t - V(s)        │   │
+│   │  This reduces variance while keeping gradient unbiased  │   │
+│   └─────────────────────────────────────────────────────────┘   │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
 ---
 
 ## Algorithm Comparison
@@ -352,16 +408,28 @@ Separates state value from action advantages for better learning.
 │   DQN            │ Continuous  │ Off-policy    │ Experience replay      │
 │   Double DQN     │ Continuous  │ Off-policy    │ Reduced overestimation │
 │   Dueling DQN    │ Continuous  │ Off-policy    │ Value/advantage split  │
+│   REINFORCE      │ Continuous  │ On-policy     │ Policy gradient        │
+│                                                                          │
+│   Method Categories:                                                     │
+│   ┌─────────────────────────────────────────────────────────────────┐   │
+│   │  VALUE-BASED          vs          POLICY-BASED                  │   │
+│   │  ─────────────────────────────────────────────────────────────  │   │
+│   │  Q-Learning, SARSA                REINFORCE                     │   │
+│   │  DQN, Double DQN, Dueling DQN                                   │   │
+│   │                                                                  │   │
+│   │  Learn Q(s,a) → derive policy     Learn π(a|s) directly        │   │
+│   │  Deterministic output             Stochastic output             │   │
+│   │  ε-greedy exploration             Natural exploration           │   │
+│   └─────────────────────────────────────────────────────────────────┘   │
 │                                                                          │
 │   Complexity Hierarchy:                                                  │
 │                                                                          │
 │   Simple ◀────────────────────────────────────────────────▶ Complex     │
 │                                                                          │
-│   Random → Threshold → Q-Learning → SARSA → DQN → Double → Dueling     │
-│     │         │            │          │       │       │        │        │
-│     │         │            │          │       │       │        │        │
-│   No        Rule-       Tabular    Tabular  Neural  Dual   Separate    │
-│   Learning  Based       Q-table    Q-table  Net     Net    Streams     │
+│   Random → Threshold → Q-Learning → SARSA → DQN → REINFORCE → Dueling  │
+│     │         │            │          │       │        │         │      │
+│   No        Rule-       Tabular    Tabular  Neural  Policy   Separate  │
+│   Learning  Based       Q-table    Q-table  Net     Gradient Streams   │
 │                                                                          │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
@@ -436,6 +504,17 @@ Separates state value from action advantages for better learning.
 | Replay Buffer Size | 10,000 | 10,000 | 10,000 |
 | Target Update Freq | 100 | 100 | 100 |
 | Hidden Layers | [128, 128] | [128, 128] | [128, 128] |
+
+### Policy Gradient Hyperparameters
+
+| Parameter | REINFORCE |
+|-----------|-----------|
+| Learning Rate | 1e-3 |
+| Discount Factor (γ) | 0.99 |
+| Use Baseline | Yes |
+| Hidden Layers | [128, 128] |
+| Gradient Clipping | 1.0 |
+| Update Frequency | End of episode (Monte Carlo) |
 
 ### Tabular Hyperparameters
 

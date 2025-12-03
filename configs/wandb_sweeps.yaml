@@ -144,3 +144,93 @@ quick_sweep:
       values: [0.95]
     n_episodes:
       value: 100
+
+# =============================================================================
+# Workload Scenario Sweeps
+# =============================================================================
+
+# Multi-Workload Sweep - tests all algorithms across all workload types
+workload_sweep:
+  method: grid
+  name: "workload-generalization-sweep"
+  metric:
+    name: final_reward
+    goal: maximize
+  parameters:
+    algorithm:
+      values: ["dqn", "double-dqn", "dueling-dqn", "reinforce"]
+    workload:
+      values: ["smooth", "bursty", "seasonal"]
+    learning_rate:
+      values: [0.001]
+    discount_factor:
+      values: [0.99]
+    n_episodes:
+      value: 500
+
+# Bursty Environment Sweep - focused on high-volatility workloads
+bursty_sweep:
+  method: bayes
+  name: "bursty-environment-sweep"
+  metric:
+    name: final_reward
+    goal: maximize
+  parameters:
+    algorithm:
+      values: ["dqn", "double-dqn", "dueling-dqn"]
+    workload:
+      value: "bursty"
+    learning_rate:
+      min: 0.0001
+      max: 0.01
+      distribution: log_uniform_values
+    discount_factor:
+      values: [0.95, 0.99]
+    batch_size:
+      values: [32, 64]
+    n_episodes:
+      value: 500
+  early_terminate:
+    type: hyperband
+    min_iter: 100
+    eta: 3
+
+# Seasonal Environment Sweep - focused on periodic patterns
+seasonal_sweep:
+  method: bayes
+  name: "seasonal-environment-sweep"
+  metric:
+    name: final_reward
+    goal: maximize
+  parameters:
+    algorithm:
+      values: ["dqn", "double-dqn", "dueling-dqn"]
+    workload:
+      value: "seasonal"
+    learning_rate:
+      min: 0.0001
+      max: 0.01
+      distribution: log_uniform_values
+    discount_factor:
+      values: [0.95, 0.99]
+    n_episodes:
+      value: 500
+
+# Quick Multi-Scenario Test (for CI/validation)
+quick_scenario_sweep:
+  method: grid
+  name: "quick-scenario-test"
+  metric:
+    name: final_reward
+    goal: maximize
+  parameters:
+    algorithm:
+      values: ["dqn", "reinforce"]
+    workload:
+      values: ["smooth", "bursty", "seasonal"]
+    learning_rate:
+      values: [0.001]
+    discount_factor:
+      values: [0.99]
+    n_episodes:
+      value: 100
