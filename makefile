@@ -1,4 +1,4 @@
-.PHONY: help setup test lint format clean train quick summary
+.PHONY: help setup test lint format clean train quick optimize summary
 
 help: ## Show available commands
 	@echo ""
@@ -35,7 +35,7 @@ format: ## Format and fix code
 	uv run ruff check --fix .
 
 # =============================================================================
-# Training
+# Training & Optimization
 # =============================================================================
 
 train: ## Run deep RL training (2000 episodes)
@@ -45,6 +45,14 @@ train: ## Run deep RL training (2000 episodes)
 quick: ## Quick test run (~2 min)
 	@echo "Running quick test..."
 	uv run python scripts/run_baselines.py --algo deep --quick
+
+optimize: ## Run Optuna Bayesian optimization (50 trials)
+	@echo "Running Optuna hyperparameter optimization..."
+	uv run python src/optuna_optimization.py --trials 50 --episodes 500
+
+optimize-quick: ## Quick optimization test (10 trials)
+	@echo "Running quick optimization..."
+	uv run python src/optuna_optimization.py --quick
 
 # =============================================================================
 # Cleanup
