@@ -5,6 +5,7 @@ SARSA Agent for Cloud Autoscaling
 import numpy as np
 from typing import Tuple, Optional
 import pickle
+from tqdm import tqdm
 
 
 class SARSAAgent:
@@ -185,7 +186,7 @@ def train_sarsa(
     sla_violations_history = []
     costs_history = []
     
-    for episode in range(n_episodes):
+    for episode in tqdm(range(n_episodes), desc="SARSA Training", disable=not verbose):
         state, info = env.reset()
         episode_reward = 0
         episode_length = 0
@@ -224,17 +225,6 @@ def train_sarsa(
         episode_lengths.append(episode_length)
         sla_violations_history.append(info.get('sla_violations', 0))
         costs_history.append(info.get('total_cost', 0))
-        
-        # Print progress
-        if verbose and (episode + 1) % verbose_freq == 0:
-            avg_reward = np.mean(episode_rewards[-verbose_freq:])
-            avg_sla = np.mean(sla_violations_history[-verbose_freq:])
-            avg_cost = np.mean(costs_history[-verbose_freq:])
-            print(f"Episode {episode + 1}/{n_episodes} | "
-                  f"Avg Reward: {avg_reward:.2f} | "
-                  f"Epsilon: {agent.epsilon:.4f} | "
-                  f"Avg SLA Violations: {avg_sla:.2f} | "
-                  f"Avg Cost: {avg_cost:.2f}")
     
     agent.episode_rewards = episode_rewards
     agent.episode_lengths = episode_lengths

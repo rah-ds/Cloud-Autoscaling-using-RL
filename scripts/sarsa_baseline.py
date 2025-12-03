@@ -10,6 +10,8 @@ import argparse
 import os
 import sys
 import logging
+from datetime import datetime
+from pathlib import Path
 from typing import Tuple, List
 
 import numpy as np
@@ -23,7 +25,43 @@ import matplotlib.pyplot as plt
 sys.path.append(os.path.abspath(os.path.join(os.getcwd(), "src")))
 from gym_mmpp_env import MMPPEnv  # type: ignore
 
-logging.basicConfig(level=logging.INFO)
+
+def setup_logging(log_dir: Path, log_level: str = "INFO") -> logging.Logger:
+    """Configure logging with both file and console handlers."""
+    log_dir.mkdir(parents=True, exist_ok=True)
+    
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    log_file = log_dir / f"sarsa_nn_{timestamp}.log"
+    
+    logger = logging.getLogger("sarsa_baseline")
+    logger.setLevel(getattr(logging, log_level.upper()))
+    logger.handlers.clear()
+    
+    # File handler
+    file_formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(funcName)s:%(lineno)d - %(message)s"
+    )
+    file_handler = logging.FileHandler(log_file)
+    file_handler.setLevel(logging.DEBUG)
+    file_handler.setFormatter(file_formatter)
+    logger.addHandler(file_handler)
+    
+    # Console handler
+    console_formatter = logging.Formatter(
+        "%(asctime)s - %(levelname)s - %(message)s",
+        datefmt="%H:%M:%S"
+    )
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(getattr(logging, log_level.upper()))
+    console_handler.setFormatter(console_formatter)
+    logger.addHandler(console_handler)
+    
+    logger.info(f"Logging initialized. Log file: {log_file}")
+    
+    return logger
+
+
+# Global logger
 logger = logging.getLogger("sarsa_baseline")
 
 
@@ -109,16 +147,38 @@ def main():
     p.add_argument("--eps-decay-steps", type=int, default=1000)
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--outdir", default=os.path.join(os.getcwd(), "artifacts"))
+    p.add_argument("--log-level", type=str, default="INFO",
+                   choices=["DEBUG", "INFO", "WARNING", "ERROR"])
     args = p.parse_args()
+
+    # Setup logging
+    global logger
+    log_dir = Path(args.outdir) / "logs"
+    logger = setup_logging(log_dir, args.log_level)
+    
+    start_time = datetime.now()
+    
+    logger.info("=" * 60)
+    logger.info("Neural Network SARSA Baseline Training")
+    logger.info("=" * 60)
+    logger.info("Configuration:")
+    logger.info(f"  Episodes: {args.episodes}")
+    logger.info(f"  Max steps: {args.max_steps}")
+    logger.info(f"  Learning rate: {args.lr}")
+    logger.info(f"  Gamma: {args.gamma}")
+    logger.info(f"  Epsilon: {args.eps_start} -> {args.eps_end} (decay: {args.eps_decay_steps})")
+    logger.info(f"  Seed: {args.seed}")
+    logger.info(f"  Output dir: {args.outdir}")
 
     os.makedirs(args.outdir, exist_ok=True)
     device = detect_device()
-    logger.info("Using device: %s", device)
+    logger.info(f"Using device: {device}")
 
     env = MMPPEnv(seed=args.seed, max_servers=10, server_capacity=10)
     obs = env.reset()
     feat = obs_to_feat(obs)
     n_actions = env.action_space.n
+    logger.info(f"Environment: n_actions={n_actions}, obs_shape={feat.shape}")
 
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
@@ -177,14 +237,15 @@ def main():
         if (ep + 1) % eval_every == 0 or ep == args.episodes - 1:
             mean_eval = evaluate(MMPPEnv(seed=args.seed + 1000), lambda f: int(torch.argmax(qnet(torch.tensor(f, dtype=torch.float32).unsqueeze(0).to(device))).item()), episodes=5, max_steps=args.max_steps)
             eval_scores.append((ep + 1, mean_eval))
-            logger.info("Episode %d reward=%.3f eval_mean=%.3f eps=%.3f", ep + 1, ep_reward, mean_eval, eps)
+            logger.info(f"Episode {ep + 1}/{args.episodes}: reward={ep_reward:.3f}, eval_mean={mean_eval:.3f}, eps={eps:.3f}")
 
     # save model
     model_path = os.path.join(args.outdir, f"sarsa_qnet_seed{args.seed}.pth")
     torch.save(qnet.state_dict(), model_path)
-    logger.info("Saved SARSA model to %s", model_path)
+    logger.info(f"Model saved to {model_path}")
 
     # save reward curve
+    plot_path = os.path.join(args.outdir, "sarsa_training_curve.png")
     fig, ax = plt.subplots(figsize=(6, 3))
     ax.plot(np.arange(1, len(rewards) + 1), rewards, label="episode reward")
     if eval_scores:
@@ -193,12 +254,20 @@ def main():
     ax.set_xlabel("Episode")
     ax.set_ylabel("Reward")
     ax.legend()
-    fig.savefig(os.path.join(args.outdir, "sarsa_training_curve.png"))
-    logger.info("Saved training plot to %s", args.outdir)
+    fig.savefig(plot_path)
+    logger.info(f"Training plot saved to {plot_path}")
 
     # final evaluation
     final_eval = evaluate(MMPPEnv(seed=args.seed + 999), lambda f: int(torch.argmax(qnet(torch.tensor(f, dtype=torch.float32).unsqueeze(0).to(device))).item()), episodes=20, max_steps=args.max_steps)
-    logger.info("Final eval (20 eps) mean_reward=%.3f", final_eval)
+    
+    # Calculate elapsed time
+    elapsed_time = datetime.now() - start_time
+    
+    logger.info("=" * 60)
+    logger.info("TRAINING COMPLETE")
+    logger.info("=" * 60)
+    logger.info(f"Final evaluation (20 episodes): mean_reward={final_eval:.3f}")
+    logger.info(f"Total runtime: {elapsed_time}")
 
     env.close()
 

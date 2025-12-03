@@ -1,0 +1,31 @@
+2025-12-02 18:52:51,990 - run_experiments - INFO - setup_logging:79 - Logging initialized. Log file: /Users/ryan.healy/DS_MSDS/Cloud-Autoscaling-using-RL/artifacts/results/logs/experiment_20251202_185251.log
+2025-12-02 18:52:51,990 - run_experiments - INFO - main:496 - ============================================================
+2025-12-02 18:52:51,990 - run_experiments - INFO - main:497 - Cloud Autoscaling RL Experiments
+2025-12-02 18:52:51,990 - run_experiments - INFO - main:498 - ============================================================
+2025-12-02 18:52:51,990 - run_experiments - INFO - main:499 - Configuration:
+2025-12-02 18:52:51,990 - run_experiments - INFO - main:500 -   Episodes: 100
+2025-12-02 18:52:51,990 - run_experiments - INFO - main:501 -   Algorithm: baselines
+2025-12-02 18:52:51,990 - run_experiments - INFO - main:502 -   Seed: 42
+2025-12-02 18:52:51,990 - run_experiments - INFO - main:503 -   Output directory: /Users/ryan.healy/DS_MSDS/Cloud-Autoscaling-using-RL/artifacts/results
+2025-12-02 18:52:51,990 - run_experiments - INFO - main:504 -   Quick mode: True
+2025-12-02 18:52:51,990 - run_experiments - INFO - main:505 -   Log level: INFO
+2025-12-02 18:52:51,990 - run_experiments - INFO - main:508 - Generating synthetic workload data...
+2025-12-02 18:52:51,991 - run_experiments - INFO - main:513 - Environment created: state_space=MultiDiscrete([3 5 3]), action_space=Discrete(3)
+2025-12-02 18:52:51,991 - run_experiments - INFO - run_baseline_policies:114 - ==================================================
+2025-12-02 18:52:51,991 - run_experiments - INFO - run_baseline_policies:115 - Running baseline policies...
+2025-12-02 18:52:51,991 - run_experiments - INFO - run_baseline_policies:116 - Number of episodes: 100
+2025-12-02 18:52:52,200 - run_experiments - INFO - run_baseline_policies:152 - Random Policy completed: reward=-1341626.72 ± 96008.47
+2025-12-02 18:52:52,326 - run_experiments - INFO - run_baseline_policies:186 - Threshold Policy completed: reward=-589285.98 ± 0.00
+2025-12-02 18:52:52,326 - run_experiments - INFO - run_baseline_policies:187 - Baseline policies evaluation complete
+2025-12-02 18:52:52,326 - run_experiments - INFO - save_results:395 - ==================================================
+2025-12-02 18:52:52,326 - run_experiments - INFO - save_results:396 - Saving experiment results
+2025-12-02 18:52:52,327 - run_experiments - INFO - save_results:416 - JSON results saved to /Users/ryan.healy/DS_MSDS/Cloud-Autoscaling-using-RL/artifacts/results/results_20251202_185252.json
+2025-12-02 18:52:52,327 - run_experiments - INFO - main:541 - ============================================================
+2025-12-02 18:52:52,327 - run_experiments - INFO - main:542 - EXPERIMENT SUMMARY
+2025-12-02 18:52:52,327 - run_experiments - INFO - main:543 - ============================================================
+2025-12-02 18:52:52,327 - run_experiments - INFO - main:546 - Baseline Policies:
+2025-12-02 18:52:52,327 - run_experiments - INFO - main:548 -   Random: reward=-1341626.72, sla_violations=0.00
+2025-12-02 18:52:52,327 - run_experiments - INFO - main:548 -   Threshold: reward=-589285.98, sla_violations=0.00
+2025-12-02 18:52:52,327 - run_experiments - INFO - main:556 - ============================================================
+2025-12-02 18:52:52,327 - run_experiments - INFO - main:557 - Total runtime: 0:00:00.336243
+2025-12-02 18:52:52,327 - run_experiments - INFO - main:558 - Experiments complete!

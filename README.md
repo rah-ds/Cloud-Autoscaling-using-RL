@@ -3,6 +3,7 @@
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
 ![Python 3.12](https://img.shields.io/badge/Python-3.12-black?logo=python&logoColor=blue)
+[![Coverage](https://img.shields.io/badge/coverage-35%25-yellow)](tests/)
 
 ## Objective
 

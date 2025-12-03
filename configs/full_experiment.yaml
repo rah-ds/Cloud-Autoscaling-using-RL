@@ -1,0 +1,19 @@
+# Full Experiment Configuration
+# ==============================
+# Use for final experiments with multiple seeds
+
+_inherit: default.yaml
+
+experiment:
+  name: "full_experiment"
+  n_episodes: 2000
+  eval_episodes: 200
+  seeds: [42, 123, 456, 789, 1011]  # Multiple seeds for statistical significance
+  save_models: true
+  save_plots: true
+
+hyperparameter_sweep:
+  enabled: true
+  learning_rates: [0.01, 0.05, 0.1, 0.2, 0.3]
+  discount_factors: [0.9, 0.95, 0.99]
+  epsilon_decays: [0.99, 0.995, 0.999]

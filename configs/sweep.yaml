@@ -1,0 +1,23 @@
+# Hyperparameter Sweep Configuration
+# ===================================
+# Focused configuration for hyperparameter tuning
+
+_inherit: default.yaml
+
+experiment:
+  name: "hyperparameter_sweep"
+  n_episodes: 500
+  eval_episodes: 50
+  save_models: false
+  save_plots: true
+
+hyperparameter_sweep:
+  enabled: true
+  # Learning rate sweep
+  learning_rates: [0.001, 0.01, 0.05, 0.1, 0.2, 0.3, 0.5]
+  # Discount factor sweep
+  discount_factors: [0.8, 0.9, 0.95, 0.99]
+  # Exploration decay sweep
+  epsilon_decays: [0.9, 0.95, 0.99, 0.995, 0.999]
+  # Initial epsilon values
+  epsilon_inits: [0.5, 0.8, 1.0]
