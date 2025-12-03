@@ -1,0 +1,72 @@
+# Default Configuration for Cloud Autoscaling RL Experiments
+# =========================================================
+
+# Experiment Settings
+experiment:
+  name: "cloud_autoscaling_rl"
+  seed: 42
+  n_episodes: 1000
+  eval_episodes: 100
+  log_level: "INFO"
+  save_models: true
+  save_plots: true
+
+# Output Paths
+paths:
+  output_dir: "artifacts/results"
+  models_dir: "artifacts/models"
+  plots_dir: "artifacts/plots"
+  logs_dir: "artifacts/results/logs"
+
+# Environment Configuration
+environment:
+  max_capacity: 100
+  min_capacity: 1
+  scaling_step: 5
+  target_utilization: 0.7
+  sla_threshold: 0.9
+  cost_per_unit: 1.0
+  sla_violation_penalty: 100.0
+  episode_length: 200
+
+# State Space Discretization
+state_space:
+  utilization_bins: 3      # low, medium, high
+  capacity_bins: 5         # levels of capacity
+  trend_bins: 3            # decreasing, stable, increasing
+
+# Q-Learning Agent
+q_learning:
+  learning_rate: 0.1
+  discount_factor: 0.95
+  epsilon: 1.0
+  epsilon_decay: 0.995
+  epsilon_min: 0.01
+
+# SARSA Agent
+sarsa:
+  learning_rate: 0.1
+  discount_factor: 0.95
+  epsilon: 1.0
+  epsilon_decay: 0.995
+  epsilon_min: 0.01
+
+# Baseline Policies
+baselines:
+  threshold:
+    scale_up_threshold: 0.8
+    scale_down_threshold: 0.3
+
+# Hyperparameter Sweep
+hyperparameter_sweep:
+  enabled: false
+  learning_rates: [0.01, 0.1, 0.3]
+  discount_factors: [0.9, 0.95, 0.99]
+  epsilon_decays: [0.99, 0.995, 0.999]
+
+# Plotting
+plotting:
+  style: "seaborn-v0_8-whitegrid"
+  figsize: [12, 6]
+  dpi: 150
+  smoothing_window: 50

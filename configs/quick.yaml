@@ -1,0 +1,18 @@
+# Quick Test Configuration
+# ========================
+# Use for rapid testing and debugging
+
+_inherit: default.yaml
+
+experiment:
+  name: "quick_test"
+  n_episodes: 100
+  eval_episodes: 20
+  save_models: false
+  save_plots: false
+
+environment:
+  episode_length: 50
+
+hyperparameter_sweep:
+  enabled: false
