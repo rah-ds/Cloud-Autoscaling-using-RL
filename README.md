@@ -213,12 +213,12 @@ uv run pre-commit run --all-files
 - [overleaf working link](https://www.overleaf.com/project/692069c4bd002e28b564dbc8)
 - [wandb logging](https://wandb.ai/healydatascience-university-of-virginia/cloud-autoscaling-rl?nw=nwuserhealydatascience)
 
-### Class Specific
+### Course Specific
 
-- The [class Canvas](https://canvas.its.virginia.edu/courses/159418/modules)
-- The class repo can be found [here](https://github.com/UVADS/reinforcement_learning_online_msds/commits/main/)
+- The [Canvas -login required](https://canvas.its.virginia.edu/courses/159418/modules)
+- The [course repo](https://github.com/UVADS/reinforcement_learning_online_msds/commits/main/)
 
-### Rivanna
+### Rivanna (UVA HPC)
 
 - **Rivanna HPC Resources** (for long-running experiments):
   - [Rivanna User Guide](https://www.rc.virginia.edu/userinfo/rivanna/overview/)
@@ -245,5 +245,5 @@ uv run pre-commit run --all-files
 ## Acknowledgments
 
 - University of Virginia - Master of Science in Data Science program
-- Professor Adam Tashman and TAs for guidance and support
-- Kaggle and GitHub dataset contributors for providing valuable data resources
+- Professor Adam Tashman
+
