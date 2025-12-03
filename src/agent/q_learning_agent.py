@@ -2,9 +2,11 @@
 Q-Learning Agent for Cloud Autoscaling
 """
 
+from typing import Any, Dict, List, Optional, Tuple
+
 import numpy as np
-from typing import Tuple, Optional
 import pickle
+from tqdm import tqdm
 
 
 class QLearningAgent:
@@ -25,7 +27,7 @@ class QLearningAgent:
         epsilon_decay: float = 0.995,
         epsilon_min: float = 0.01,
         seed: Optional[int] = None
-    ):
+    ) -> None:
         """
         Initialize Q-Learning agent.
         
@@ -39,22 +41,22 @@ class QLearningAgent:
             epsilon_min: Minimum epsilon value
             seed: Random seed
         """
-        self.state_space_shape = state_space_shape
-        self.n_actions = n_actions
-        self.learning_rate = learning_rate
-        self.discount_factor = discount_factor
-        self.epsilon = epsilon
-        self.epsilon_decay = epsilon_decay
-        self.epsilon_min = epsilon_min
+        self.state_space_shape: Tuple[int, ...] = state_space_shape
+        self.n_actions: int = n_actions
+        self.learning_rate: float = learning_rate
+        self.discount_factor: float = discount_factor
+        self.epsilon: float = epsilon
+        self.epsilon_decay: float = epsilon_decay
+        self.epsilon_min: float = epsilon_min
         
         # Initialize Q-table with zeros
         # Shape: (util_levels, capacity_levels, trend_levels, actions)
         q_shape = tuple(state_space_shape) + (n_actions,)
-        self.q_table = np.zeros(q_shape)
+        self.q_table: np.ndarray = np.zeros(q_shape)
         
         # Tracking
-        self.episode_rewards = []
-        self.episode_lengths = []
+        self.episode_rewards: List[float] = []
+        self.episode_lengths: List[int] = []
         
         if seed is not None:
             np.random.seed(seed)
@@ -90,7 +92,7 @@ class QLearningAgent:
         reward: float,
         next_state: np.ndarray,
         done: bool
-    ):
+    ) -> None:
         """
         Update Q-value using Q-learning update rule.
         
@@ -114,11 +116,11 @@ class QLearningAgent:
         td_error = target_q - current_q
         self.q_table[state_idx + (action,)] += self.learning_rate * td_error
     
-    def decay_epsilon(self):
+    def decay_epsilon(self) -> None:
         """Decay exploration rate."""
         self.epsilon = max(self.epsilon_min, self.epsilon * self.epsilon_decay)
     
-    def save(self, filepath: str):
+    def save(self, filepath: str) -> None:
         """Save Q-table and parameters to file."""
         data = {
             'q_table': self.q_table,
@@ -130,7 +132,7 @@ class QLearningAgent:
             pickle.dump(data, f)
         print(f"Agent saved to {filepath}")
     
-    def load(self, filepath: str):
+    def load(self, filepath: str) -> None:
         """Load Q-table and parameters from file."""
         with open(filepath, 'rb') as f:
             data = pickle.load(f)
@@ -157,12 +159,12 @@ class QLearningAgent:
 
 
 def train_q_learning(
-    env,
+    env: Any,
     agent: QLearningAgent,
     n_episodes: int = 1000,
     verbose: bool = True,
     verbose_freq: int = 100
-) -> Tuple[QLearningAgent, dict]:
+) -> Tuple[QLearningAgent, Dict[str, List[float]]]:
     """
     Train Q-Learning agent.
     
@@ -176,16 +178,16 @@ def train_q_learning(
     Returns:
         Trained agent and training metrics
     """
-    episode_rewards = []
-    episode_lengths = []
-    sla_violations_history = []
-    costs_history = []
+    episode_rewards: List[float] = []
+    episode_lengths: List[int] = []
+    sla_violations_history: List[float] = []
+    costs_history: List[float] = []
     
-    for episode in range(n_episodes):
+    for episode in tqdm(range(n_episodes), desc="Q-Learning Training", disable=not verbose):
         state, info = env.reset()
-        episode_reward = 0
-        episode_length = 0
-        done = False
+        episode_reward: float = 0
+        episode_length: int = 0
+        done: bool = False
         
         while not done:
             # Select and execute action
@@ -213,9 +215,9 @@ def train_q_learning(
         
         # Print progress
         if verbose and (episode + 1) % verbose_freq == 0:
-            avg_reward = np.mean(episode_rewards[-verbose_freq:])
-            avg_sla = np.mean(sla_violations_history[-verbose_freq:])
-            avg_cost = np.mean(costs_history[-verbose_freq:])
+            avg_reward: float = np.mean(episode_rewards[-verbose_freq:])
+            avg_sla: float = np.mean(sla_violations_history[-verbose_freq:])
+            avg_cost: float = np.mean(costs_history[-verbose_freq:])
             print(f"Episode {episode + 1}/{n_episodes} | "
                   f"Avg Reward: {avg_reward:.2f} | "
                   f"Epsilon: {agent.epsilon:.4f} | "
@@ -225,7 +227,7 @@ def train_q_learning(
     agent.episode_rewards = episode_rewards
     agent.episode_lengths = episode_lengths
     
-    metrics = {
+    metrics: Dict[str, List[float]] = {
         'episode_rewards': episode_rewards,
         'episode_lengths': episode_lengths,
         'sla_violations': sla_violations_history,
@@ -236,11 +238,11 @@ def train_q_learning(
 
 
 def evaluate_agent(
-    env,
+    env: Any,
     agent: QLearningAgent,
     n_episodes: int = 100,
     verbose: bool = True
-) -> dict:
+) -> Dict[str, float]:
     """
     Evaluate trained agent.
     
@@ -253,18 +255,18 @@ def evaluate_agent(
     Returns:
         Evaluation metrics
     """
-    episode_rewards = []
-    episode_lengths = []
-    sla_violations = []
-    costs = []
-    utilizations = []
+    episode_rewards: List[float] = []
+    episode_lengths: List[int] = []
+    sla_violations: List[float] = []
+    costs: List[float] = []
+    utilizations: List[float] = []
     
     for episode in range(n_episodes):
         state, info = env.reset()
-        episode_reward = 0
-        episode_length = 0
-        episode_utils = []
-        done = False
+        episode_reward: float = 0
+        episode_length: int = 0
+        episode_utils: List[float] = []
+        done: bool = False
         
         while not done:
             # Greedy action selection (no exploration)
@@ -284,13 +286,13 @@ def evaluate_agent(
         costs.append(info.get('total_cost', 0))
         utilizations.append(np.mean(episode_utils))
     
-    metrics = {
-        'mean_reward': np.mean(episode_rewards),
-        'std_reward': np.std(episode_rewards),
-        'mean_length': np.mean(episode_lengths),
-        'mean_sla_violations': np.mean(sla_violations),
-        'mean_cost': np.mean(costs),
-        'mean_utilization': np.mean(utilizations)
+    metrics: Dict[str, float] = {
+        'mean_reward': float(np.mean(episode_rewards)),
+        'std_reward': float(np.std(episode_rewards)),
+        'mean_length': float(np.mean(episode_lengths)),
+        'mean_sla_violations': float(np.mean(sla_violations)),
+        'mean_cost': float(np.mean(costs)),
+        'mean_utilization': float(np.mean(utilizations))
     }
     
     if verbose:

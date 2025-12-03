@@ -16,31 +16,79 @@ Usage:
 """
 
 import argparse
+import logging
 import subprocess
 import sys
-import os
 from pathlib import Path
 from datetime import datetime
 
 PROJECT_ROOT = Path(__file__).parent.parent
 
 
+def setup_logging(log_dir: Path, log_level: str = "INFO") -> logging.Logger:
+    """Configure logging with both file and console handlers."""
+    log_dir.mkdir(parents=True, exist_ok=True)
+    
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    log_file = log_dir / f"experiment_suite_{timestamp}.log"
+    
+    logger = logging.getLogger("run_all_experiments")
+    logger.setLevel(getattr(logging, log_level.upper()))
+    logger.handlers.clear()
+    
+    # File handler
+    file_formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
+    file_handler = logging.FileHandler(log_file)
+    file_handler.setLevel(logging.DEBUG)
+    file_handler.setFormatter(file_formatter)
+    logger.addHandler(file_handler)
+    
+    # Console handler
+    console_formatter = logging.Formatter(
+        "%(asctime)s - %(levelname)s - %(message)s",
+        datefmt="%H:%M:%S"
+    )
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(getattr(logging, log_level.upper()))
+    console_handler.setFormatter(console_formatter)
+    logger.addHandler(console_handler)
+    
+    logger.info(f"Logging initialized. Log file: {log_file}")
+    
+    return logger
+
+
+# Global logger
+logger = logging.getLogger("run_all_experiments")
+
+
 def run_command(cmd: list, description: str) -> bool:
     """Run a command and return success status."""
-    print(f"\n{'='*60}")
-    print(f"Running: {description}")
-    print(f"Command: {' '.join(cmd)}")
-    print('='*60)
+    logger.info("=" * 60)
+    logger.info(f"Running: {description}")
+    logger.debug(f"Command: {' '.join(cmd)}")
     
     try:
-        result = subprocess.run(cmd, check=True, cwd=PROJECT_ROOT)
-        print(f"✓ {description} completed successfully")
+        result = subprocess.run(
+            cmd, 
+            check=True, 
+            cwd=PROJECT_ROOT,
+            capture_output=True,
+            text=True
+        )
+        logger.info(f"✓ {description} completed successfully")
+        if result.stdout:
+            logger.debug(f"stdout: {result.stdout[-500:]}")  # Last 500 chars
         return True
     except subprocess.CalledProcessError as e:
-        print(f"✗ {description} failed with exit code {e.returncode}")
+        logger.error(f"✗ {description} failed with exit code {e.returncode}")
+        if e.stderr:
+            logger.error(f"stderr: {e.stderr[-500:]}")
         return False
     except FileNotFoundError:
-        print(f"✗ Command not found: {cmd[0]}")
+        logger.error(f"✗ Command not found: {cmd[0]}")
         return False
 
 
@@ -54,22 +102,36 @@ def main():
                         help="Number of training episodes")
     parser.add_argument("--seed", type=int, default=42,
                         help="Random seed")
+    parser.add_argument("--log-level", type=str, default="INFO",
+                        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+                        help="Logging level")
     args = parser.parse_args()
+    
+    # Setup logging
+    global logger
+    log_dir = PROJECT_ROOT / "artifacts" / "logs"
+    logger = setup_logging(log_dir, args.log_level)
     
     python = sys.executable
     episodes = 100 if args.quick else args.episodes
     
-    print("="*60)
-    print("Cloud Autoscaling RL - Complete Experiment Suite")
-    print("="*60)
-    print(f"Started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print(f"Quick mode: {args.quick}")
-    print(f"Episodes: {episodes}")
-    print(f"Skip NN: {args.no_nn}")
+    start_time = datetime.now()
+    
+    logger.info("=" * 60)
+    logger.info("Cloud Autoscaling RL - Complete Experiment Suite")
+    logger.info("=" * 60)
+    logger.info(f"Started at: {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
+    logger.info("Configuration:")
+    logger.info(f"  Quick mode: {args.quick}")
+    logger.info(f"  Episodes: {episodes}")
+    logger.info(f"  Skip NN: {args.no_nn}")
+    logger.info(f"  Seed: {args.seed}")
+    logger.info(f"  Log level: {args.log_level}")
     
     results = []
     
     # 1. Run tabular RL experiments (Q-Learning and SARSA)
+    logger.info("Starting Experiment 1: Tabular RL Methods")
     results.append(run_command(
         [python, "scripts/run_baselines.py", 
          "--episodes", str(episodes),
@@ -80,6 +142,7 @@ def main():
     
     # 2. Run SARSA neural network baseline
     if not args.no_nn:
+        logger.info("Starting Experiment 2: Neural Network Baselines")
         results.append(run_command(
             [python, "scripts/sarsa_baseline.py",
              "--episodes", str(min(episodes * 2, 2000)),
@@ -88,6 +151,7 @@ def main():
         ))
         
         # 3. Run DQN baseline
+        logger.info("Starting Experiment 3: DQN (stable-baselines3)")
         results.append(run_command(
             [python, "scripts/baseline_expanded.py",
              "--algo", "dqn",
@@ -97,6 +161,7 @@ def main():
         ))
         
         # 4. Run PPO baseline
+        logger.info("Starting Experiment 4: PPO (stable-baselines3)")
         results.append(run_command(
             [python, "scripts/baseline_expanded.py",
              "--algo", "ppo",
@@ -104,23 +169,35 @@ def main():
              "--seed", str(args.seed)],
             "PPO Baseline (stable-baselines3)"
         ))
+    else:
+        logger.info("Skipping neural network experiments (--no-nn flag)")
+    
+    # Calculate elapsed time
+    end_time = datetime.now()
+    elapsed_time = end_time - start_time
     
     # Summary
-    print("\n" + "="*60)
-    print("EXPERIMENT SUITE COMPLETE")
-    print("="*60)
-    print(f"Finished at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print(f"Total experiments: {len(results)}")
-    print(f"Successful: {sum(results)}")
-    print(f"Failed: {len(results) - sum(results)}")
+    logger.info("=" * 60)
+    logger.info("EXPERIMENT SUITE COMPLETE")
+    logger.info("=" * 60)
+    logger.info(f"Finished at: {end_time.strftime('%Y-%m-%d %H:%M:%S')}")
+    logger.info(f"Total runtime: {elapsed_time}")
+    logger.info(f"Total experiments: {len(results)}")
+    logger.info(f"Successful: {sum(results)}")
+    logger.info(f"Failed: {len(results) - sum(results)}")
     
     # List output files
     artifacts_dir = PROJECT_ROOT / "artifacts"
     if artifacts_dir.exists():
-        print(f"\nOutput files in {artifacts_dir}:")
+        logger.info(f"Output files in {artifacts_dir}:")
         for f in sorted(artifacts_dir.rglob("*")):
             if f.is_file():
-                print(f"  {f.relative_to(PROJECT_ROOT)}")
+                logger.debug(f"  {f.relative_to(PROJECT_ROOT)}")
+    
+    if all(results):
+        logger.info("All experiments completed successfully!")
+    else:
+        logger.warning("Some experiments failed. Check logs for details.")
     
     return 0 if all(results) else 1
 

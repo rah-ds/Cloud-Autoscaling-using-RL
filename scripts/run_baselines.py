@@ -17,15 +17,15 @@ Usage:
 import argparse
 import json
 import logging
-import os
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import Dict, Any
 
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+from tqdm import tqdm
 
 # Add src to path
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -37,14 +37,51 @@ from agent.sarsa_agent import SARSAAgent
 from agent.baseline_policies import (
     RandomPolicy,
     ThresholdPolicy,
-    run_policy_episode,
 )
 
-# Setup logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
+
+def setup_logging(output_dir: Path, log_level: str = "INFO") -> logging.Logger:
+    """Configure logging with both file and console handlers."""
+    # Create logs directory
+    log_dir = output_dir / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Create timestamp for log file
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    log_file = log_dir / f"experiment_{timestamp}.log"
+    
+    # Create logger
+    logger = logging.getLogger("run_experiments")
+    logger.setLevel(getattr(logging, log_level.upper()))
+    logger.handlers.clear()  # Clear any existing handlers
+    
+    # Create formatters
+    file_formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(funcName)s:%(lineno)d - %(message)s"
+    )
+    console_formatter = logging.Formatter(
+        "%(asctime)s - %(levelname)s - %(message)s",
+        datefmt="%H:%M:%S"
+    )
+    
+    # File handler (detailed)
+    file_handler = logging.FileHandler(log_file)
+    file_handler.setLevel(logging.DEBUG)
+    file_handler.setFormatter(file_formatter)
+    logger.addHandler(file_handler)
+    
+    # Console handler (concise)
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(getattr(logging, log_level.upper()))
+    console_handler.setFormatter(console_formatter)
+    logger.addHandler(console_handler)
+    
+    logger.info(f"Logging initialized. Log file: {log_file}")
+    
+    return logger
+
+
+# Global logger (will be initialized in main)
 logger = logging.getLogger("run_experiments")
 
 # Plot settings
@@ -74,16 +111,19 @@ def run_baseline_policies(
     n_episodes: int = 100
 ) -> Dict[str, Any]:
     """Run baseline policies and collect metrics."""
+    logger.info("=" * 50)
     logger.info("Running baseline policies...")
+    logger.info(f"Number of episodes: {n_episodes}")
     
     results = {}
     
     # Random policy
-    random_policy = RandomPolicy(env.action_space)
+    logger.debug("Initializing Random policy")
+    random_policy = RandomPolicy(seed=42)
     random_rewards = []
     random_sla = []
     
-    for ep in range(n_episodes):
+    for ep in tqdm(range(n_episodes), desc="Random Policy", leave=False):
         state, info = env.reset()
         total_reward = 0
         sla_violations = 0
@@ -105,16 +145,15 @@ def run_baseline_policies(
         "std_reward": np.std(random_rewards),
         "mean_sla_violations": np.mean(random_sla),
     }
+    logger.info(f"Random Policy completed: reward={results['random']['mean_reward']:.2f} ± {results['random']['std_reward']:.2f}")
     
     # Threshold policy
-    threshold_policy = ThresholdPolicy(
-        scale_up_threshold=0.8,
-        scale_down_threshold=0.3
-    )
+    logger.debug("Initializing Threshold policy")
+    threshold_policy = ThresholdPolicy()
     threshold_rewards = []
     threshold_sla = []
     
-    for ep in range(n_episodes):
+    for ep in tqdm(range(n_episodes), desc="Threshold Policy", leave=False):
         state, info = env.reset()
         total_reward = 0
         sla_violations = 0
@@ -137,8 +176,8 @@ def run_baseline_policies(
         "mean_sla_violations": np.mean(threshold_sla),
     }
     
-    logger.info(f"Random Policy: reward={results['random']['mean_reward']:.2f}")
-    logger.info(f"Threshold Policy: reward={results['threshold']['mean_reward']:.2f}")
+    logger.info(f"Threshold Policy completed: reward={results['threshold']['mean_reward']:.2f} ± {results['threshold']['std_reward']:.2f}")
+    logger.info("Baseline policies evaluation complete")
     
     return results
 
@@ -153,7 +192,14 @@ def train_q_learning_agent(
     seed: int = 42
 ) -> Dict[str, Any]:
     """Train Q-Learning agent and return metrics."""
-    logger.info(f"Training Q-Learning (lr={learning_rate}, gamma={discount_factor})...")
+    logger.info("=" * 50)
+    logger.info("Training Q-Learning Agent")
+    logger.info(f"  Episodes: {n_episodes}")
+    logger.info(f"  Learning rate: {learning_rate}")
+    logger.info(f"  Discount factor: {discount_factor}")
+    logger.info(f"  Initial epsilon: {epsilon}")
+    logger.info(f"  Epsilon decay: {epsilon_decay}")
+    logger.info(f"  Seed: {seed}")
     
     agent = QLearningAgent(
         state_space_shape=(3, 5, 3),
@@ -169,7 +215,7 @@ def train_q_learning_agent(
     episode_rewards = []
     episode_sla = []
     
-    for ep in range(n_episodes):
+    for ep in tqdm(range(n_episodes), desc="Q-Learning", leave=False):
         state, info = env.reset()
         total_reward = 0
         sla_violations = 0
@@ -190,18 +236,18 @@ def train_q_learning_agent(
         agent.decay_epsilon()
         episode_rewards.append(total_reward)
         episode_sla.append(sla_violations)
-        
-        if (ep + 1) % 100 == 0:
-            avg_reward = np.mean(episode_rewards[-100:])
-            logger.info(f"  Episode {ep+1}: avg_reward={avg_reward:.2f}, epsilon={agent.epsilon:.3f}")
+    
+    final_reward = np.mean(episode_rewards[-100:]) if len(episode_rewards) >= 100 else np.mean(episode_rewards)
+    final_sla = np.mean(episode_sla[-100:]) if len(episode_sla) >= 100 else np.mean(episode_sla)
+    logger.info(f"Q-Learning training complete: final_reward={final_reward:.2f}, final_sla={final_sla:.2f}")
     
     return {
         "agent": agent,
         "episode_rewards": episode_rewards,
         "episode_sla": episode_sla,
         "final_epsilon": agent.epsilon,
-        "mean_reward": np.mean(episode_rewards[-100:]),
-        "mean_sla": np.mean(episode_sla[-100:]),
+        "mean_reward": final_reward,
+        "mean_sla": final_sla,
     }
 
 
@@ -215,7 +261,14 @@ def train_sarsa_agent(
     seed: int = 42
 ) -> Dict[str, Any]:
     """Train SARSA agent and return metrics."""
-    logger.info(f"Training SARSA (lr={learning_rate}, gamma={discount_factor})...")
+    logger.info("=" * 50)
+    logger.info("Training SARSA Agent")
+    logger.info(f"  Episodes: {n_episodes}")
+    logger.info(f"  Learning rate: {learning_rate}")
+    logger.info(f"  Discount factor: {discount_factor}")
+    logger.info(f"  Initial epsilon: {epsilon}")
+    logger.info(f"  Epsilon decay: {epsilon_decay}")
+    logger.info(f"  Seed: {seed}")
     
     agent = SARSAAgent(
         state_space_shape=(3, 5, 3),
@@ -231,33 +284,40 @@ def train_sarsa_agent(
     episode_rewards = []
     episode_sla = []
     
-    for ep in range(n_episodes):
-        state, info = env.reset()
-        action = agent.select_action(state)
-        total_reward = 0
-        sla_violations = 0
-        done = False
-        
-        while not done:
-            next_state, reward, terminated, truncated, info = env.step(action)
-            next_action = agent.select_action(next_state)
+    with tqdm(range(n_episodes), desc="SARSA Training", leave=False) as pbar:
+        for ep in pbar:
+            state, info = env.reset()
+            action = agent.select_action(state)
+            total_reward = 0
+            sla_violations = 0
+            done = False
             
-            # SARSA update (on-policy)
-            agent.update(state, action, reward, next_state, next_action, terminated)
+            while not done:
+                next_state, reward, terminated, truncated, info = env.step(action)
+                next_action = agent.select_action(next_state)
+                
+                # SARSA update (on-policy)
+                agent.update(state, action, reward, next_state, next_action, terminated)
+                
+                total_reward += reward
+                sla_violations += info.get("sla_violation", 0)
+                state = next_state
+                action = next_action
+                done = terminated or truncated
             
-            total_reward += reward
-            sla_violations += info.get("sla_violation", 0)
-            state = next_state
-            action = next_action
-            done = terminated or truncated
-        
-        agent.decay_epsilon()
-        episode_rewards.append(total_reward)
-        episode_sla.append(sla_violations)
-        
-        if (ep + 1) % 100 == 0:
-            avg_reward = np.mean(episode_rewards[-100:])
-            logger.info(f"  Episode {ep+1}: avg_reward={avg_reward:.2f}, epsilon={agent.epsilon:.3f}")
+            agent.decay_epsilon()
+            episode_rewards.append(total_reward)
+            episode_sla.append(sla_violations)
+            
+            if (ep + 1) % 100 == 0:
+                avg_reward = np.mean(episode_rewards[-100:])
+                avg_sla = np.mean(episode_sla[-100:])
+                pbar.set_postfix(avg_reward=f"{avg_reward:.2f}", avg_sla=f"{avg_sla:.2f}", eps=f"{agent.epsilon:.3f}")
+                logger.info(f"  Episode {ep+1}/{n_episodes}: avg_reward={avg_reward:.2f}, avg_sla={avg_sla:.2f}, eps={agent.epsilon:.3f}")
+    
+    final_reward = np.mean(episode_rewards[-100:])
+    final_sla = np.mean(episode_sla[-100:])
+    logger.info(f"SARSA training complete: final_reward={final_reward:.2f}, final_sla={final_sla:.2f}")
     
     return {
         "agent": agent,
@@ -275,41 +335,58 @@ def run_hyperparameter_sweep(
     n_episodes: int = 500
 ) -> Dict[str, Any]:
     """Run hyperparameter sweep for given algorithm."""
-    logger.info(f"Running hyperparameter sweep for {algorithm}...")
+    logger.info("=" * 50)
+    logger.info(f"Running hyperparameter sweep for {algorithm}")
+    logger.info(f"Episodes per configuration: {n_episodes}")
     
     learning_rates = [0.01, 0.1, 0.3]
     discount_factors = [0.9, 0.95, 0.99]
+    logger.info(f"Learning rates: {learning_rates}")
+    logger.info(f"Discount factors: {discount_factors}")
     
     results = {}
+    total_configs = len(learning_rates) * len(discount_factors)
+    config_num = 0
     
-    for lr in learning_rates:
-        for gamma in discount_factors:
-            config_name = f"lr={lr}_gamma={gamma}"
-            logger.info(f"  Config: {config_name}")
-            
-            if algorithm == "q-learning":
-                metrics = train_q_learning_agent(
-                    env, n_episodes=n_episodes,
-                    learning_rate=lr, discount_factor=gamma
-                )
-            else:
-                metrics = train_sarsa_agent(
-                    env, n_episodes=n_episodes,
-                    learning_rate=lr, discount_factor=gamma
-                )
-            
-            results[config_name] = {
-                "learning_rate": lr,
-                "discount_factor": gamma,
-                "mean_reward": metrics["mean_reward"],
-                "mean_sla": metrics["mean_sla"],
-            }
+    with tqdm(total=total_configs, desc="Hyperparameter Sweep", leave=False) as pbar:
+        for lr in learning_rates:
+            for gamma in discount_factors:
+                config_num += 1
+                config_name = f"lr={lr}_gamma={gamma}"
+                pbar.set_description(f"Sweep: {config_name}")
+                logger.info(f"  [{config_num}/{total_configs}] Config: {config_name}")
+                
+                if algorithm == "q-learning":
+                    metrics = train_q_learning_agent(
+                        env, n_episodes=n_episodes,
+                        learning_rate=lr, discount_factor=gamma
+                    )
+                else:
+                    metrics = train_sarsa_agent(
+                        env, n_episodes=n_episodes,
+                        learning_rate=lr, discount_factor=gamma
+                    )
+                
+                results[config_name] = {
+                    "learning_rate": lr,
+                    "discount_factor": gamma,
+                    "mean_reward": metrics["mean_reward"],
+                    "mean_sla": metrics["mean_sla"],
+                }
+                logger.debug(f"    Result: reward={metrics['mean_reward']:.2f}, sla={metrics['mean_sla']:.2f}")
+                pbar.update(1)
+    
+    # Find best configuration
+    best_config = max(results.items(), key=lambda x: x[1]["mean_reward"])
+    logger.info(f"Best configuration: {best_config[0]} (reward={best_config[1]['mean_reward']:.2f})")
     
     return results
 
 
 def save_results(results: Dict[str, Any], output_dir: Path) -> None:
     """Save experiment results to JSON and plots."""
+    logger.info("=" * 50)
+    logger.info("Saving experiment results")
     output_dir.mkdir(parents=True, exist_ok=True)
     
     # Save JSON results (excluding non-serializable objects)
@@ -329,7 +406,7 @@ def save_results(results: Dict[str, Any], output_dir: Path) -> None:
     with open(json_path, "w") as f:
         json.dump(json_results, f, indent=2, default=str)
     
-    logger.info(f"Results saved to {json_path}")
+    logger.info(f"JSON results saved to {json_path}")
     
     # Create comparison plot
     if "q_learning" in results and "sarsa" in results:
@@ -396,7 +473,15 @@ def main():
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
     parser.add_argument("--output-dir", type=str, default="artifacts/results",
                         help="Output directory for results")
+    parser.add_argument("--log-level", type=str, default="INFO",
+                        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+                        help="Logging level")
     args = parser.parse_args()
+    
+    # Setup logging
+    global logger
+    output_dir = PROJECT_ROOT / args.output_dir
+    logger = setup_logging(output_dir, args.log_level)
     
     # Adjust for quick mode
     n_episodes = 100 if args.quick else args.episodes
@@ -404,15 +489,24 @@ def main():
     logger.info("=" * 60)
     logger.info("Cloud Autoscaling RL Experiments")
     logger.info("=" * 60)
-    logger.info(f"Episodes: {n_episodes}")
-    logger.info(f"Algorithm: {args.algo}")
-    logger.info(f"Seed: {args.seed}")
+    logger.info("Configuration:")
+    logger.info(f"  Episodes: {n_episodes}")
+    logger.info(f"  Algorithm: {args.algo}")
+    logger.info(f"  Seed: {args.seed}")
+    logger.info(f"  Output directory: {output_dir}")
+    logger.info(f"  Quick mode: {args.quick}")
+    logger.info(f"  Log level: {args.log_level}")
     
     # Generate workload
+    logger.info("Generating synthetic workload data...")
     workload = generate_workload(length=1000, seed=args.seed)
+    logger.debug(f"Workload stats: min={workload.min():.2f}, max={workload.max():.2f}, mean={workload.mean():.2f}")
+    
     env = CloudAutoscalingEnv(workload_data=workload, seed=args.seed)
+    logger.info(f"Environment created: state_space={env.observation_space}, action_space={env.action_space}")
     
     results = {}
+    start_time = datetime.now()
     
     # Run baselines
     if args.algo in ["all", "baselines"]:
@@ -431,25 +525,29 @@ def main():
         )
     
     # Save results
-    output_dir = PROJECT_ROOT / args.output_dir
     save_results(results, output_dir)
     
+    # Calculate elapsed time
+    elapsed_time = datetime.now() - start_time
+    
     # Print summary
-    logger.info("\n" + "=" * 60)
+    logger.info("=" * 60)
     logger.info("EXPERIMENT SUMMARY")
     logger.info("=" * 60)
     
     if "baselines" in results:
+        logger.info("Baseline Policies:")
         for name, data in results["baselines"].items():
-            logger.info(f"{name.capitalize()}: reward={data['mean_reward']:.2f}")
+            logger.info(f"  {name.capitalize()}: reward={data['mean_reward']:.2f}, sla_violations={data['mean_sla_violations']:.2f}")
     
     if "q_learning" in results:
-        logger.info(f"Q-Learning: reward={results['q_learning']['mean_reward']:.2f}")
+        logger.info(f"Q-Learning: reward={results['q_learning']['mean_reward']:.2f}, sla={results['q_learning']['mean_sla']:.2f}")
     
     if "sarsa" in results:
-        logger.info(f"SARSA: reward={results['sarsa']['mean_reward']:.2f}")
+        logger.info(f"SARSA: reward={results['sarsa']['mean_reward']:.2f}, sla={results['sarsa']['mean_sla']:.2f}")
     
     logger.info("=" * 60)
+    logger.info(f"Total runtime: {elapsed_time}")
     logger.info("Experiments complete!")
     
     env.close()
