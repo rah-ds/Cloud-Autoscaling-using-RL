@@ -42,11 +42,11 @@ train: ## Run deep RL training (2000 episodes)
 	@echo "Running deep RL training (2000 episodes)..."
 	uv run python scripts/run_baselines.py --algo deep --episodes 2000
 
-quick: ## Quick test run (~2 min)
+quick: ## Quick test run 
 	@echo "Running quick test..."
 	uv run python scripts/run_baselines.py --algo deep --quick
 
-quick-all: ## Quick test of all algorithms on all workloads (~10 min)
+quick-all: ## Quick test of all algorithms on all workloads
 	@echo "Running quick test of all algorithms on all workloads..."
 	@for workload in smooth bursty seasonal; do \
 		echo ""; \
@@ -62,6 +62,16 @@ train-all-scenarios: ## Train all algorithms on all workloads (full run)
 		echo ""; \
 		echo "=== Training on $$workload workload ==="; \
 		uv run python scripts/run_baselines.py --algo all --episodes 1000 --workload $$workload; \
+	done
+	@echo ""
+	@echo "All training complete!"
+
+train-all-scenarios_500: ## Train all algorithms on all workloads (full run)
+	@echo "Training all algorithms on all workloads (this will take a while)..."
+	@for workload in smooth bursty seasonal; do \
+		echo ""; \
+		echo "=== Training on $$workload workload ==="; \
+		uv run python scripts/run_baselines.py --algo all --episodes 500 --workload $$workload; \
 	done
 	@echo ""
 	@echo "All training complete!"

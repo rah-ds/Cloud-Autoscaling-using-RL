@@ -1047,6 +1047,773 @@ def create_workload_comparison_plot(
     print(f"  ✓ Workload patterns: workload_patterns.{style_config['format']}")
 
 
+def create_sla_violations_by_workload(
+    style_config: dict,
+    output_path: Path,
+) -> None:
+    """
+    Create chart showing SLA violations by workload type and model over episodes.
+    
+    Loads results from all workload types and creates:
+    1. Bar chart comparing final SLA violations across workloads and algorithms
+    2. Line plots showing SLA violations over episodes for each workload
+    """
+    import pickle
+    
+    # Find all result files
+    result_files = sorted(RESULTS_DIR.glob("results_*.json"), reverse=True)
+    if not result_files:
+        print("  ⚠ No results files found, skipping SLA violations chart...")
+        return
+    
+    # Also check for workload-specific model files to extract SLA data
+    model_files = list((PROJECT_ROOT / "artifacts" / "models").glob("*.pkl"))
+    
+    # Organize data by workload and algorithm
+    workload_data = {"smooth": {}, "bursty": {}, "seasonal": {}}
+    
+    # Load data from model files (they contain episode-level SLA data)
+    for model_file in model_files:
+        try:
+            with open(model_file, "rb") as f:
+                save_data = pickle.load(f)
+            
+            metadata = save_data.get("metadata", {})
+            workload_type = save_data.get("workload_type", "smooth")
+            algorithm = save_data.get("algorithm", model_file.stem.split("_")[0])
+            
+            episode_sla = metadata.get("episode_sla", [])
+            mean_sla = metadata.get("mean_sla", 0)
+            
+            if episode_sla and workload_type in workload_data:
+                workload_data[workload_type][algorithm] = {
+                    "episode_sla": episode_sla,
+                    "mean_sla": mean_sla,
+                }
+        except (OSError, pickle.UnpicklingError, KeyError, TypeError):
+            continue
+    
+    # Also load from the latest results file for baselines
+    if result_files:
+        with open(result_files[0], encoding="utf-8") as f:
+            latest_results = json.load(f)
+        
+        # Try to determine workload from filename or content
+        for key in ["baselines", "q_learning", "sarsa", "dqn", "double_dqn", "dueling_dqn"]:
+            if key in latest_results:
+                data = latest_results[key]
+                if isinstance(data, dict):
+                    if key == "baselines":
+                        for baseline_name, baseline_data in data.items():
+                            sla = baseline_data.get("mean_sla_violations", 0)
+                            # Store in smooth by default (since we can't determine workload from single file)
+                            if baseline_name not in workload_data["smooth"]:
+                                workload_data["smooth"][baseline_name] = {"mean_sla": sla, "episode_sla": []}
+                    else:
+                        episode_sla = data.get("episode_sla", [])
+                        mean_sla = data.get("mean_sla", 0)
+                        if key not in workload_data["smooth"]:
+                            workload_data["smooth"][key] = {"episode_sla": episode_sla, "mean_sla": mean_sla}
+    
+    # Check if we have any data
+    has_data = any(bool(algos) for algos in workload_data.values())
+    if not has_data:
+        print("  ⚠ No SLA violation data found in model files, skipping...")
+        return
+    
+    # Create figure with 2 subplots
+    fig, axes = plt.subplots(1, 2, figsize=style_config["figsize_double"])
+    
+    # Plot 1: Bar chart comparing mean SLA violations across workloads and algorithms
+    ax1 = axes[0]
+    
+    workload_names = ["smooth", "bursty", "seasonal"]
+    workload_labels = ["Smooth", "Bursty", "Seasonal"]
+    
+    # Get all unique algorithms
+    all_algos = set()
+    for wl_data in workload_data.values():
+        all_algos.update(wl_data.keys())
+    all_algos = sorted(all_algos)
+    
+    if all_algos:
+        x = np.arange(len(workload_labels))
+        width = 0.8 / max(len(all_algos), 1)
+        
+        for i, algo in enumerate(all_algos):
+            sla_values = []
+            for wl in workload_names:
+                if algo in workload_data[wl]:
+                    sla_values.append(workload_data[wl][algo].get("mean_sla", 0))
+                else:
+                    sla_values.append(0)
+            
+            offset = (i - len(all_algos) / 2 + 0.5) * width
+            color = COLORS.get(algo, "#999999")
+            display_name = AGENT_DISPLAY_NAMES.get(algo, algo.replace("_", " ").title())
+            ax1.bar(x + offset, sla_values, width * 0.9, label=display_name, color=color, edgecolor="black", linewidth=0.5)
+        
+        ax1.set_xlabel("Workload Type")
+        ax1.set_ylabel("Mean SLA Violations per Episode")
+        ax1.set_title("(a) SLA Violations by Workload & Algorithm")
+        ax1.set_xticks(x)
+        ax1.set_xticklabels(workload_labels)
+        ax1.legend(loc="upper right", fontsize=style_config["fontsize_legend"] - 2, ncol=2)
+        ax1.grid(True, alpha=0.3, axis="y")
+    
+    # Plot 2: Line plot showing SLA violations over episodes (for algorithms with episode data)
+    ax2 = axes[1]
+    
+    smoothing_window = 50
+    plotted_any = False
+    
+    for wl_name, wl_label in zip(workload_names, workload_labels):
+        for algo, data in workload_data[wl_name].items():
+            episode_sla = data.get("episode_sla", [])
+            if len(episode_sla) > smoothing_window:
+                episodes = np.arange(len(episode_sla))
+                smoothed = uniform_filter1d(np.array(episode_sla, dtype=float), size=smoothing_window, mode="nearest")
+                
+                color = COLORS.get(algo, "#999999")
+                linestyle = "-" if wl_name == "smooth" else ("--" if wl_name == "bursty" else ":")
+                display_name = AGENT_DISPLAY_NAMES.get(algo, algo.replace("_", " ").title())
+                label = f"{display_name} ({wl_label})"
+                
+                ax2.plot(
+                    episodes,
+                    smoothed,
+                    label=label,
+                    color=color,
+                    linestyle=linestyle,
+                    linewidth=style_config["linewidth"],
+                    alpha=0.8,
+                )
+                plotted_any = True
+    
+    if plotted_any:
+        ax2.set_xlabel("Episode")
+        ax2.set_ylabel("SLA Violations (Smoothed)")
+        ax2.set_title("(b) SLA Violations Over Training")
+        ax2.legend(loc="upper right", fontsize=style_config["fontsize_legend"] - 2, ncol=2)
+        ax2.grid(True, alpha=0.3)
+    else:
+        ax2.text(0.5, 0.5, "No episode-level SLA data available", 
+                 ha="center", va="center", transform=ax2.transAxes,
+                 fontsize=style_config["fontsize_label"])
+        ax2.set_title("(b) SLA Violations Over Training")
+    
+    plt.tight_layout()
+    plt.savefig(output_path / f"sla_violations_by_workload.{style_config['format']}")
+    plt.close()
+    print(f"  ✓ SLA violations by workload: sla_violations_by_workload.{style_config['format']}")
+
+
+def create_sla_learning_curves(
+    results: dict,
+    style_config: dict,
+    output_path: Path,
+    smoothing_window: int = 50,
+) -> None:
+    """Create learning curves for SLA violations alongside rewards."""
+    fig, axes = plt.subplots(1, 2, figsize=style_config["figsize_double"])
+    
+    agents_to_plot = ["q_learning", "sarsa", "dqn", "double_dqn", "dueling_dqn"]
+    
+    # Plot rewards
+    ax1 = axes[0]
+    for agent_key in agents_to_plot:
+        if agent_key not in results:
+            continue
+        
+        rewards = results[agent_key].get("episode_rewards", [])
+        if not rewards:
+            continue
+        
+        episodes = np.arange(len(rewards))
+        smoothed = uniform_filter1d(np.array(rewards), size=smoothing_window, mode="nearest")
+        
+        ax1.plot(
+            episodes,
+            smoothed,
+            label=AGENT_DISPLAY_NAMES.get(agent_key, agent_key),
+            color=COLORS.get(agent_key, "#999999"),
+            linewidth=style_config["linewidth"],
+        )
+    
+    ax1.set_xlabel("Episode")
+    ax1.set_ylabel("Reward")
+    ax1.set_title("(a) Reward Learning Curves")
+    ax1.legend(loc="lower right")
+    ax1.grid(True, alpha=0.3)
+    
+    # Plot SLA violations
+    ax2 = axes[1]
+    for agent_key in agents_to_plot:
+        if agent_key not in results:
+            continue
+        
+        sla = results[agent_key].get("episode_sla", [])
+        if not sla:
+            continue
+        
+        episodes = np.arange(len(sla))
+        smoothed = uniform_filter1d(np.array(sla, dtype=float), size=smoothing_window, mode="nearest")
+        
+        ax2.plot(
+            episodes,
+            smoothed,
+            label=AGENT_DISPLAY_NAMES.get(agent_key, agent_key),
+            color=COLORS.get(agent_key, "#999999"),
+            linewidth=style_config["linewidth"],
+        )
+    
+    ax2.set_xlabel("Episode")
+    ax2.set_ylabel("SLA Violations")
+    ax2.set_title("(b) SLA Violation Learning Curves")
+    ax2.legend(loc="upper right")
+    ax2.grid(True, alpha=0.3)
+    
+    plt.tight_layout()
+    plt.savefig(output_path / f"reward_sla_learning_curves.{style_config['format']}")
+    plt.close()
+    print(f"  ✓ Reward & SLA learning curves: reward_sla_learning_curves.{style_config['format']}")
+
+
+def create_sla_summary_table(
+    style_config: dict,
+    output_path: Path,
+) -> None:
+    """
+    Create a beautiful table visualization showing SLA violations across all models and configs.
+    
+    Features:
+    - Heatmap-style table with models as rows and workloads as columns
+    - Best performer in each column highlighted with green
+    - Overall best highlighted with a gold border
+    - Clean, publication-ready styling
+    """
+    import pickle
+    from matplotlib.patches import Rectangle
+    from matplotlib.colors import LinearSegmentedColormap
+    
+    # Collect data from model files
+    model_files = list((PROJECT_ROOT / "artifacts" / "models").glob("*.pkl"))
+    
+    # Organize data by workload and algorithm
+    workload_data = {"smooth": {}, "bursty": {}, "seasonal": {}}
+    
+    for model_file in model_files:
+        try:
+            with open(model_file, "rb") as f:
+                save_data = pickle.load(f)
+            
+            metadata = save_data.get("metadata", {})
+            workload_type = save_data.get("workload_type", "smooth")
+            algorithm = save_data.get("algorithm", model_file.stem.split("_")[0])
+            
+            mean_sla = metadata.get("mean_sla", 0)
+            mean_reward = metadata.get("mean_reward", 0)
+            
+            if workload_type in workload_data:
+                workload_data[workload_type][algorithm] = {
+                    "mean_sla": mean_sla,
+                    "mean_reward": mean_reward,
+                }
+        except (OSError, pickle.UnpicklingError, KeyError, TypeError):
+            continue
+    
+    # Also load from results files
+    result_files = sorted(RESULTS_DIR.glob("results_*.json"), reverse=True)
+    if result_files:
+        with open(result_files[0], encoding="utf-8") as f:
+            latest_results = json.load(f)
+        
+        for key in ["q_learning", "sarsa", "dqn", "double_dqn", "dueling_dqn"]:
+            if key in latest_results:
+                data = latest_results[key]
+                if isinstance(data, dict) and key not in workload_data["smooth"]:
+                    workload_data["smooth"][key] = {
+                        "mean_sla": data.get("mean_sla", 0),
+                        "mean_reward": data.get("mean_reward", 0),
+                    }
+    
+    # Check if we have data
+    has_data = any(bool(algos) for algos in workload_data.values())
+    if not has_data:
+        print("  ⚠ No data found for SLA summary table, skipping...")
+        return
+    
+    # Get all unique algorithms across all workloads
+    all_algos = set()
+    for wl_data in workload_data.values():
+        all_algos.update(wl_data.keys())
+    all_algos = sorted(all_algos)
+    
+    if not all_algos:
+        print("  ⚠ No algorithms found for SLA summary table, skipping...")
+        return
+    
+    workload_names = ["smooth", "bursty", "seasonal"]
+    workload_labels = ["Smooth", "Bursty", "Seasonal"]
+    
+    # Build the data matrix
+    n_algos = len(all_algos)
+    n_workloads = len(workload_names)
+    
+    # Create matrix of SLA values (rows = algorithms, cols = workloads)
+    sla_matrix = np.full((n_algos, n_workloads), np.nan)
+    reward_matrix = np.full((n_algos, n_workloads), np.nan)
+    
+    for i, algo in enumerate(all_algos):
+        for j, wl in enumerate(workload_names):
+            if algo in workload_data[wl]:
+                sla_matrix[i, j] = workload_data[wl][algo].get("mean_sla", np.nan)
+                reward_matrix[i, j] = workload_data[wl][algo].get("mean_reward", np.nan)
+    
+    # Create figure
+    fig_height = max(6, 1.5 + n_algos * 0.8)
+    fig, ax = plt.subplots(figsize=(12, fig_height))
+    
+    # Use a nice background
+    fig.patch.set_facecolor('#FAFAFA')
+    ax.set_facecolor('#FFFFFF')
+    
+    # Create custom colormap (green = good/low, red = bad/high)
+    colors_cmap = ['#2E7D32', '#4CAF50', '#81C784', '#C8E6C9', '#FFFFFF', 
+                   '#FFCDD2', '#EF9A9A', '#E57373', '#F44336']
+    cmap = LinearSegmentedColormap.from_list('sla_cmap', colors_cmap[::-1])  # Reverse so low = green
+    
+    # Normalize the data for coloring (excluding NaN)
+    valid_values = sla_matrix[~np.isnan(sla_matrix)]
+    if len(valid_values) > 0:
+        vmin, vmax = np.min(valid_values), np.max(valid_values)
+        if vmin == vmax:
+            vmax = vmin + 1  # Avoid division by zero
+    else:
+        vmin, vmax = 0, 1
+    
+    # Find best (minimum) for each column and overall
+    col_bests = []
+    for j in range(n_workloads):
+        col_vals = sla_matrix[:, j]
+        valid_mask = ~np.isnan(col_vals)
+        if np.any(valid_mask):
+            col_bests.append(np.nanargmin(col_vals))
+        else:
+            col_bests.append(None)
+    
+    # Overall best
+    overall_best = None
+    overall_best_val = float('inf')
+    for i in range(n_algos):
+        for j in range(n_workloads):
+            if not np.isnan(sla_matrix[i, j]) and sla_matrix[i, j] < overall_best_val:
+                overall_best_val = sla_matrix[i, j]
+                overall_best = (i, j)
+    
+    # Table dimensions
+    cell_height = 0.8
+    cell_width = 2.5
+    header_height = 1.0
+    row_label_width = 2.2
+    
+    # Starting positions
+    start_x = row_label_width
+    start_y = n_algos * cell_height
+    
+    # Draw header row
+    for j, wl_label in enumerate(workload_labels):
+        x = start_x + j * cell_width
+        y = start_y
+        
+        # Header cell
+        header_color = '#1565C0' if wl_label == "Seasonal" else ('#E65100' if wl_label == "Bursty" else '#2E7D32')
+        rect = Rectangle((x, y), cell_width, header_height, 
+                         facecolor=header_color, edgecolor='white', linewidth=2)
+        ax.add_patch(rect)
+        ax.text(x + cell_width/2, y + header_height/2, wl_label,
+               ha='center', va='center', fontsize=style_config["fontsize_label"],
+               fontweight='bold', color='white')
+    
+    # Add "Average" column header
+    x = start_x + n_workloads * cell_width
+    rect = Rectangle((x, start_y), cell_width, header_height,
+                     facecolor='#424242', edgecolor='white', linewidth=2)
+    ax.add_patch(rect)
+    ax.text(x + cell_width/2, start_y + header_height/2, "Average",
+           ha='center', va='center', fontsize=style_config["fontsize_label"],
+           fontweight='bold', color='white')
+    
+    # Draw algorithm labels and data cells
+    algo_display_names = [AGENT_DISPLAY_NAMES.get(a, a.replace("_", " ").title()) for a in all_algos]
+    
+    for i, (algo, algo_display) in enumerate(zip(all_algos, algo_display_names)):
+        y = start_y - (i + 1) * cell_height
+        
+        # Row label (algorithm name)
+        algo_color = COLORS.get(algo, '#666666')
+        rect = Rectangle((0, y), row_label_width, cell_height,
+                         facecolor=algo_color, edgecolor='white', linewidth=2, alpha=0.9)
+        ax.add_patch(rect)
+        ax.text(row_label_width/2, y + cell_height/2, algo_display,
+               ha='center', va='center', fontsize=style_config["fontsize_tick"],
+               fontweight='bold', color='white')
+        
+        # Data cells for each workload
+        row_values = []
+        for j in range(n_workloads):
+            x = start_x + j * cell_width
+            val = sla_matrix[i, j]
+            
+            if np.isnan(val):
+                # No data cell
+                rect = Rectangle((x, y), cell_width, cell_height,
+                                 facecolor='#E0E0E0', edgecolor='white', linewidth=2)
+                ax.add_patch(rect)
+                ax.text(x + cell_width/2, y + cell_height/2, "N/A",
+                       ha='center', va='center', fontsize=style_config["fontsize_tick"],
+                       color='#9E9E9E', style='italic')
+            else:
+                row_values.append(val)
+                # Normalize value for color
+                norm_val = (val - vmin) / (vmax - vmin) if vmax > vmin else 0.5
+                cell_color = cmap(norm_val)
+                
+                # Check if this is the best in column
+                is_col_best = (col_bests[j] == i)
+                is_overall_best = (overall_best == (i, j))
+                
+                # Draw cell
+                rect = Rectangle((x, y), cell_width, cell_height,
+                                 facecolor=cell_color, edgecolor='white', linewidth=2)
+                ax.add_patch(rect)
+                
+                # Add highlight border for best
+                if is_overall_best:
+                    highlight = Rectangle((x + 0.05, y + 0.05), cell_width - 0.1, cell_height - 0.1,
+                                          facecolor='none', edgecolor='#FFD700', linewidth=4)
+                    ax.add_patch(highlight)
+                elif is_col_best:
+                    highlight = Rectangle((x + 0.05, y + 0.05), cell_width - 0.1, cell_height - 0.1,
+                                          facecolor='none', edgecolor='#4CAF50', linewidth=3)
+                    ax.add_patch(highlight)
+                
+                # Text color based on background brightness
+                text_color = 'white' if norm_val > 0.6 or norm_val < 0.3 else '#333333'
+                
+                # Add value text
+                val_text = f"{val:.1f}"
+                fontweight = 'bold' if is_col_best or is_overall_best else 'normal'
+                ax.text(x + cell_width/2, y + cell_height/2, val_text,
+                       ha='center', va='center', fontsize=style_config["fontsize_label"],
+                       fontweight=fontweight, color=text_color)
+                
+                # Add star for overall best
+                if is_overall_best:
+                    ax.text(x + cell_width - 0.3, y + cell_height - 0.2, "*",
+                           ha='center', va='center', fontsize=16,
+                           fontweight='bold', color='#FFD700')
+        
+        # Average column
+        x = start_x + n_workloads * cell_width
+        if row_values:
+            avg_val = np.mean(row_values)
+            norm_val = (avg_val - vmin) / (vmax - vmin) if vmax > vmin else 0.5
+            cell_color = cmap(norm_val)
+            
+            rect = Rectangle((x, y), cell_width, cell_height,
+                             facecolor=cell_color, edgecolor='white', linewidth=2)
+            ax.add_patch(rect)
+            
+            text_color = 'white' if norm_val > 0.6 or norm_val < 0.3 else '#333333'
+            ax.text(x + cell_width/2, y + cell_height/2, f"{avg_val:.1f}",
+                   ha='center', va='center', fontsize=style_config["fontsize_label"],
+                   color=text_color)
+        else:
+            rect = Rectangle((x, y), cell_width, cell_height,
+                             facecolor='#E0E0E0', edgecolor='white', linewidth=2)
+            ax.add_patch(rect)
+            ax.text(x + cell_width/2, y + cell_height/2, "N/A",
+                   ha='center', va='center', fontsize=style_config["fontsize_tick"],
+                   color='#9E9E9E', style='italic')
+    
+    # Set axis limits and remove axes
+    total_width = row_label_width + (n_workloads + 1) * cell_width
+    total_height = n_algos * cell_height + header_height
+    ax.set_xlim(-0.2, total_width + 0.2)
+    ax.set_ylim(-0.5, total_height + 1.5)
+    ax.axis('off')
+    
+    # Title
+    ax.text(total_width/2, total_height + 1.0, 
+           "SLA Violations Summary: Models vs Workload Configurations",
+           ha='center', va='center', fontsize=style_config["fontsize_title"] + 2,
+           fontweight='bold', color='#1A1A1A')
+    
+    # Legend
+    legend_y = -0.3
+    ax.text(0, legend_y, "Legend:", fontsize=style_config["fontsize_tick"], 
+           fontweight='bold', color='#333333')
+    
+    # Color scale indicator
+    ax.text(1.5, legend_y, "Lower = Better (Green)", fontsize=style_config["fontsize_tick"] - 1,
+           color='#2E7D32')
+    ax.text(5.0, legend_y, "Higher = Worse (Red)", fontsize=style_config["fontsize_tick"] - 1,
+           color='#F44336')
+    
+    # Best indicators
+    rect = Rectangle((8.5, legend_y - 0.15), 0.4, 0.3, facecolor='none', 
+                     edgecolor='#FFD700', linewidth=3)
+    ax.add_patch(rect)
+    ax.text(9.1, legend_y, "= Overall Best", fontsize=style_config["fontsize_tick"] - 1,
+           color='#333333')
+    
+    rect = Rectangle((11.5, legend_y - 0.15), 0.4, 0.3, facecolor='none',
+                     edgecolor='#4CAF50', linewidth=2)
+    ax.add_patch(rect)
+    ax.text(12.1, legend_y, "= Best in Column", fontsize=style_config["fontsize_tick"] - 1,
+           color='#333333')
+    
+    plt.tight_layout()
+    plt.savefig(output_path / f"sla_summary_table.{style_config['format']}", 
+               facecolor=fig.get_facecolor(), edgecolor='none', bbox_inches='tight')
+    plt.close()
+    print(f"  ✓ SLA summary table: sla_summary_table.{style_config['format']}")
+
+
+def create_sla_best_performers_summary(
+    style_config: dict,
+    output_path: Path,
+) -> None:
+    """
+    Create a beautiful summary chart showing best performing models by workload.
+    
+    Features:
+    - Elegant grouped visualization by workload type
+    - Highlights the best performer (min SLA violations) with a star/crown
+    - Clean gradient color scheme
+    - Summary statistics panel
+    """
+    import pickle
+    from matplotlib.patches import FancyBboxPatch
+    
+    # Collect data from model files
+    model_files = list((PROJECT_ROOT / "artifacts" / "models").glob("*.pkl"))
+    
+    # Organize data by workload and algorithm
+    workload_data = {"smooth": {}, "bursty": {}, "seasonal": {}}
+    
+    for model_file in model_files:
+        try:
+            with open(model_file, "rb") as f:
+                save_data = pickle.load(f)
+            
+            metadata = save_data.get("metadata", {})
+            workload_type = save_data.get("workload_type", "smooth")
+            algorithm = save_data.get("algorithm", model_file.stem.split("_")[0])
+            
+            mean_sla = metadata.get("mean_sla", 0)
+            mean_reward = metadata.get("mean_reward", 0)
+            
+            if workload_type in workload_data:
+                workload_data[workload_type][algorithm] = {
+                    "mean_sla": mean_sla,
+                    "mean_reward": mean_reward,
+                }
+        except (OSError, pickle.UnpicklingError, KeyError, TypeError):
+            continue
+    
+    # Also load from results files
+    result_files = sorted(RESULTS_DIR.glob("results_*.json"), reverse=True)
+    if result_files:
+        with open(result_files[0], encoding="utf-8") as f:
+            latest_results = json.load(f)
+        
+        for key in ["q_learning", "sarsa", "dqn", "double_dqn", "dueling_dqn"]:
+            if key in latest_results:
+                data = latest_results[key]
+                if isinstance(data, dict) and key not in workload_data["smooth"]:
+                    workload_data["smooth"][key] = {
+                        "mean_sla": data.get("mean_sla", 0),
+                        "mean_reward": data.get("mean_reward", 0),
+                    }
+    
+    # Check if we have data
+    has_data = any(bool(algos) for algos in workload_data.values())
+    if not has_data:
+        print("  ⚠ No data found for best performers summary, skipping...")
+        return
+    
+    # Create beautiful figure
+    fig = plt.figure(figsize=(14, 10))
+    
+    # Use a nice background
+    fig.patch.set_facecolor('#FAFAFA')
+    
+    # Create grid layout
+    gs = fig.add_gridspec(2, 3, height_ratios=[3, 1], hspace=0.3, wspace=0.25)
+    
+    # Workload colors (gradient-friendly)
+    workload_colors = {
+        "smooth": {"primary": "#4CAF50", "light": "#C8E6C9", "dark": "#2E7D32"},
+        "bursty": {"primary": "#FF9800", "light": "#FFE0B2", "dark": "#E65100"},
+        "seasonal": {"primary": "#2196F3", "light": "#BBDEFB", "dark": "#1565C0"},
+    }
+    
+    workload_names = ["smooth", "bursty", "seasonal"]
+    workload_labels = ["Smooth", "Bursty", "Seasonal"]
+    
+    best_performers = {}
+    
+    # Create individual workload panels
+    for idx, (wl_name, wl_label) in enumerate(zip(workload_names, workload_labels)):
+        ax = fig.add_subplot(gs[0, idx])
+        
+        algos = workload_data[wl_name]
+        if not algos:
+            ax.text(0.5, 0.5, "No data", ha="center", va="center", 
+                   fontsize=14, style="italic", color="#666666")
+            ax.set_title(wl_label, fontsize=style_config["fontsize_title"], fontweight="bold",
+                        color=workload_colors[wl_name]["dark"])
+            ax.axis("off")
+            continue
+        
+        # Sort algorithms by SLA violations (ascending - best first)
+        sorted_algos = sorted(algos.items(), key=lambda x: x[1].get("mean_sla", float("inf")))
+        
+        algo_names = [AGENT_DISPLAY_NAMES.get(a, a.replace("_", " ").title()) for a, _ in sorted_algos]
+        sla_values = [data.get("mean_sla", 0) for _, data in sorted_algos]
+        
+        # Store best performer
+        if sorted_algos:
+            best_algo, best_data = sorted_algos[0]
+            best_performers[wl_name] = {
+                "algorithm": AGENT_DISPLAY_NAMES.get(best_algo, best_algo),
+                "sla": best_data.get("mean_sla", 0),
+                "reward": best_data.get("mean_reward", 0),
+            }
+        
+        # Create horizontal bar chart
+        y_pos = np.arange(len(algo_names))
+        
+        # Create gradient colors based on ranking
+        colors = []
+        for i in range(len(sorted_algos)):
+            if i == 0:
+                colors.append(workload_colors[wl_name]["primary"])
+            else:
+                # Fade to lighter color for worse performers
+                alpha = 0.4 + 0.6 * (1 - i / max(len(sorted_algos) - 1, 1))
+                colors.append(workload_colors[wl_name]["light"])
+        
+        bars = ax.barh(y_pos, sla_values, color=colors, edgecolor=workload_colors[wl_name]["dark"], 
+                       linewidth=1.5, height=0.6)
+        
+        # Highlight the best performer with a star
+        if sla_values:
+            ax.scatter(sla_values[0] + max(sla_values) * 0.08, 0, marker="*", 
+                      s=400, color="#FFD700", edgecolors=workload_colors[wl_name]["dark"], 
+                      linewidths=1.5, zorder=5)
+        
+        # Add value labels
+        for i, (bar, val) in enumerate(zip(bars, sla_values)):
+            label_x = val + max(sla_values) * 0.02 if max(sla_values) > 0 else 0.1
+            fontweight = "bold" if i == 0 else "normal"
+            ax.text(label_x, bar.get_y() + bar.get_height()/2, f"{val:.1f}",
+                   va="center", ha="left", fontsize=style_config["fontsize_tick"],
+                   fontweight=fontweight, color=workload_colors[wl_name]["dark"])
+        
+        ax.set_yticks(y_pos)
+        ax.set_yticklabels(algo_names, fontsize=style_config["fontsize_tick"])
+        ax.set_xlabel("Mean SLA Violations", fontsize=style_config["fontsize_label"])
+        ax.set_title(wl_label, fontsize=style_config["fontsize_title"], fontweight="bold",
+                    color=workload_colors[wl_name]["dark"], pad=10)
+        
+        # Style the axes
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+        ax.spines["left"].set_color(workload_colors[wl_name]["dark"])
+        ax.spines["bottom"].set_color(workload_colors[wl_name]["dark"])
+        ax.tick_params(colors=workload_colors[wl_name]["dark"])
+        ax.set_facecolor("#FFFFFF")
+        
+        # Add subtle grid
+        ax.xaxis.grid(True, linestyle="--", alpha=0.3, color=workload_colors[wl_name]["primary"])
+        ax.set_axisbelow(True)
+        
+        # Invert y-axis so best is at top
+        ax.invert_yaxis()
+    
+    # Bottom summary panel
+    ax_summary = fig.add_subplot(gs[1, :])
+    ax_summary.axis("off")
+    ax_summary.set_facecolor("#FFFFFF")
+    
+    # Create summary table
+    if best_performers:
+        # Title
+        ax_summary.text(0.5, 0.95, "BEST PERFORMERS SUMMARY", 
+                       ha="center", va="top", fontsize=style_config["fontsize_title"] + 2,
+                       fontweight="bold", color="#333333", transform=ax_summary.transAxes)
+        
+        # Create summary boxes for each workload
+        box_width = 0.28
+        box_height = 0.6
+        start_x = 0.08
+        
+        for idx, (wl_name, wl_label) in enumerate(zip(workload_names, ["Smooth", "Bursty", "Seasonal"])):
+            if wl_name not in best_performers:
+                continue
+                
+            bp = best_performers[wl_name]
+            box_x = start_x + idx * 0.32
+            
+            # Draw fancy box
+            fancy_box = FancyBboxPatch(
+                (box_x, 0.1), box_width, box_height,
+                boxstyle="round,pad=0.02,rounding_size=0.02",
+                facecolor=workload_colors[wl_name]["light"],
+                edgecolor=workload_colors[wl_name]["dark"],
+                linewidth=2,
+                transform=ax_summary.transAxes,
+                zorder=1
+            )
+            ax_summary.add_patch(fancy_box)
+            
+            # Workload label
+            ax_summary.text(box_x + box_width/2, 0.65, wl_label.upper(),
+                           ha="center", va="center", fontsize=style_config["fontsize_label"],
+                           fontweight="bold", color=workload_colors[wl_name]["dark"],
+                           transform=ax_summary.transAxes)
+            
+            # Best algorithm (use asterisk instead of star emoji)
+            ax_summary.text(box_x + box_width/2, 0.45, f"* {bp['algorithm']}",
+                           ha="center", va="center", fontsize=style_config["fontsize_label"] + 1,
+                           fontweight="bold", color="#333333",
+                           transform=ax_summary.transAxes)
+            
+            # SLA violations
+            ax_summary.text(box_x + box_width/2, 0.28, f"SLA Violations: {bp['sla']:.1f}",
+                           ha="center", va="center", fontsize=style_config["fontsize_tick"],
+                           color="#555555", transform=ax_summary.transAxes)
+            
+            # Reward
+            reward_str = f"{bp['reward']/1000:.1f}K" if abs(bp['reward']) >= 1000 else f"{bp['reward']:.0f}"
+            ax_summary.text(box_x + box_width/2, 0.15, f"Reward: {reward_str}",
+                           ha="center", va="center", fontsize=style_config["fontsize_tick"],
+                           color="#555555", transform=ax_summary.transAxes)
+    
+    # Add overall title
+    fig.suptitle("SLA Violations Analysis: Best Models by Workload Type", 
+                fontsize=style_config["fontsize_title"] + 4, fontweight="bold",
+                color="#1A1A1A", y=0.98)
+    
+    plt.savefig(output_path / f"sla_best_performers.{style_config['format']}", 
+               facecolor=fig.get_facecolor(), edgecolor='none')
+    plt.close()
+    print(f"  ✓ SLA best performers: sla_best_performers.{style_config['format']}")
+
+
 # =============================================================================
 # Main
 # =============================================================================
@@ -1090,6 +1857,12 @@ def main():
     create_learning_curves_subplots(results, style_config, PLOTS_DIR)
     create_convergence_comparison(results, style_config, PLOTS_DIR)
     create_summary_figure(results, style_config, PLOTS_DIR)
+    
+    # SLA violation charts
+    create_sla_learning_curves(results, style_config, PLOTS_DIR)
+    create_sla_violations_by_workload(style_config, PLOTS_DIR)
+    create_sla_summary_table(style_config, PLOTS_DIR)
+    create_sla_best_performers_summary(style_config, PLOTS_DIR)
     
     # Trajectory visualizations
     create_capacity_vs_demand_plot(style_config, PLOTS_DIR)
