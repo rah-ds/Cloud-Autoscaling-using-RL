@@ -62,7 +62,7 @@ def train():
     logger = setup_logging()
     
     # Initialize wandb - sweep agent will have already set the config
-    run = wandb.init()
+    wandb.init()
     config = wandb.config
     
     logger.info(f"Starting training with config: {dict(config)}")
