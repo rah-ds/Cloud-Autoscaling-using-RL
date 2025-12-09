@@ -34,7 +34,9 @@ In contrast, reinforcement learning approaches offer several potential advantage
 
 This project investigates whether these theoretical benefits translate to measurable improvements in simulated cloud environments.
 
-## Data
+**[Model Architectures & Metrics Documentation](docs/model_architectures.md)** — Detailed descriptions of all algorithms, neural network architectures, and evaluation metrics.
+
+## Real Data Considered
 
 - [Kaggle - Cloud Computing Performance
   Metrics](https://www.kaggle.com/datasets/abdurraziq01/cloud-computing-performance-metrics)
@@ -61,13 +63,7 @@ This project investigates whether these theoretical benefits translate to measur
   - May be used to test how well the RL agent generalizes beyond
     synthetic data
 
-## Results
 
-📖 **[Model Architectures & Metrics Documentation](docs/model_architectures.md)** — Detailed descriptions of all algorithms, neural network architectures, and evaluation metrics.
-
-📄 **[Final Paper](docs/final_paper/improved_draft.tex)** — Complete academic paper with methodology, results, and analysis.
-
-Our experiments compare 7 algorithms across 4 categories trained over 1,000-2,000 episodes. Click to expand each visualization:
 
 
 ## Getting Started with uv
@@ -177,4 +173,4 @@ Training was performed on:
 
 All hyperparameters, random seeds, and environment configurations are documented in the `configs/` directory.
 
-📊 **[View Experiment Logs on Weights & Biases](https://wandb.ai/healydatascience-university-of-virginia/cloud-autoscaling-rl?nw=nwuserhealydatascience)**
+**[View Experiment Logs on Weights & Biases](https://wandb.ai/healydatascience-university-of-virginia/cloud-autoscaling-rl?nw=nwuserhealydatascience)**
