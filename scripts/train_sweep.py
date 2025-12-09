@@ -2,14 +2,14 @@
 """
 Training script called by wandb sweep agent.
 
-This script is designed to be called directly by wandb sweep agents,
-receiving hyperparameters as command-line arguments.
+This script is designed to be called directly by wandb sweep agents.
+Hyperparameters are provided by wandb.config, which is set automatically
+by the sweep agent based on the sweep configuration.
 
 Usage (called automatically by wandb agent):
-    python scripts/train_sweep.py --algorithm=q-learning --learning_rate=0.1 ...
+    python scripts/train_sweep.py
 """
 
-import argparse
 import logging
 import sys
 from pathlib import Path
