@@ -26,3 +26,34 @@ Found a bug or have a feature request? Please open an issue on GitHub with:
 - Steps to reproduce (for bugs)
 - Expected vs. actual behavior
 - Your environment details (OS, Python version, etc.)
+
+### Pre-commit Hooks
+
+This project uses pre-commit hooks to maintain code quality. The hooks automatically:
+
+- Remove trailing whitespace
+- Ensure files end with a newline
+- Validate YAML and TOML files
+- Check for merge conflicts
+- Run Ruff for linting and formatting
+
+To set up pre-commit hooks:
+
+```bash
+# Install pre-commit hooks
+make pre-commit-install
+
+# Or manually
+uv run pre-commit install
+```
+
+Once installed, the hooks will run automatically on `git commit`. You can also run them manually:
+
+```bash
+# Run on all files
+make pre-commit-run
+
+# Or manually
+uv run pre-commit run --all-files
+```
+
