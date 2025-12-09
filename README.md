@@ -4,6 +4,7 @@
 [![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
 ![Python 3.12](https://img.shields.io/badge/Python-3.12-black?logo=python&logoColor=blue)
 [![Coverage](https://img.shields.io/badge/coverage-35%25-yellow)](tests/)
+[![Weights & Biases](https://img.shields.io/badge/Weights%20%26%20Biases-FFCC33?style=flat&logo=weightsandbiases&logoColor=black)](https://wandb.ai/healydatascience-university-of-virginia/cloud-autoscaling-rl?nw=nwuserhealydatascience)
 
 A comprehensive reinforcement learning approach to cloud auto-scaling that learns optimal scaling policies through interaction with a simulated cloud environment.
 
@@ -231,7 +232,10 @@ Cloud Autoscaling RL - Available Commands
 ## Reproducibility
 
 Training was performed on:
+
 - **Google Colab** with NVIDIA A100 GPUs
 - **Apple M3 Max** with Metal GPU acceleration
 
 All hyperparameters, random seeds, and environment configurations are documented in the `configs/` directory.
+
+📊 **[View Experiment Logs on Weights & Biases](https://wandb.ai/healydatascience-university-of-virginia/cloud-autoscaling-rl?nw=nwuserhealydatascience)**
