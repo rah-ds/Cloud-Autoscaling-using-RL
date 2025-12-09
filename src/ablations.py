@@ -32,6 +32,11 @@ class AblationConfig:
     def __hash__(self):
         return hash(self.name)
 
+    def __eq__(self, other):
+        if not isinstance(other, AblationConfig):
+            return False
+        return self.name == other.name
+
 
 @dataclass
 class AblationResult:
