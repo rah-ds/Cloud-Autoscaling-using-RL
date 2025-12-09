@@ -9,7 +9,6 @@ Usage (called automatically by wandb agent):
     python scripts/train_sweep.py --algorithm=q-learning --learning_rate=0.1 ...
 """
 
-import argparse
 import logging
 import sys
 from pathlib import Path
