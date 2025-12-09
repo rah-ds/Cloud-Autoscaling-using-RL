@@ -5,6 +5,7 @@ with epsilon-greedy exploration and a small MLP Q-approximator.
 
 Saves model (state_dict) and training reward curve to ./artifacts.
 """
+
 from __future__ import annotations
 import argparse
 import os
@@ -29,14 +30,14 @@ from gym_mmpp_env import MMPPEnv  # type: ignore
 def setup_logging(log_dir: Path, log_level: str = "INFO") -> logging.Logger:
     """Configure logging with both file and console handlers."""
     log_dir.mkdir(parents=True, exist_ok=True)
-    
+
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     log_file = log_dir / f"sarsa_nn_{timestamp}.log"
-    
+
     logger = logging.getLogger("sarsa_baseline")
     logger.setLevel(getattr(logging, log_level.upper()))
     logger.handlers.clear()
-    
+
     # File handler
     file_formatter = logging.Formatter(
         "%(asctime)s - %(name)s - %(levelname)s - %(funcName)s:%(lineno)d - %(message)s"
@@ -45,19 +46,18 @@ def setup_logging(log_dir: Path, log_level: str = "INFO") -> logging.Logger:
     file_handler.setLevel(logging.DEBUG)
     file_handler.setFormatter(file_formatter)
     logger.addHandler(file_handler)
-    
+
     # Console handler
     console_formatter = logging.Formatter(
-        "%(asctime)s - %(levelname)s - %(message)s",
-        datefmt="%H:%M:%S"
+        "%(asctime)s - %(levelname)s - %(message)s", datefmt="%H:%M:%S"
     )
     console_handler = logging.StreamHandler()
     console_handler.setLevel(getattr(logging, log_level.upper()))
     console_handler.setFormatter(console_formatter)
     logger.addHandler(console_handler)
-    
+
     logger.info(f"Logging initialized. Log file: {log_file}")
-    
+
     return logger
 
 
@@ -116,7 +116,9 @@ def epsilon_greedy(q_values: torch.Tensor, eps: float) -> int:
     return int(torch.argmax(q_values).item())
 
 
-def evaluate(env: MMPPEnv, policy_fn, episodes: int = 10, max_steps: int = 200) -> float:
+def evaluate(
+    env: MMPPEnv, policy_fn, episodes: int = 10, max_steps: int = 200
+) -> float:
     total = 0.0
     for _ in range(episodes):
         obs = env.reset()
@@ -147,17 +149,21 @@ def main():
     p.add_argument("--eps-decay-steps", type=int, default=1000)
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--outdir", default=os.path.join(os.getcwd(), "artifacts"))
-    p.add_argument("--log-level", type=str, default="INFO",
-                   choices=["DEBUG", "INFO", "WARNING", "ERROR"])
+    p.add_argument(
+        "--log-level",
+        type=str,
+        default="INFO",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+    )
     args = p.parse_args()
 
     # Setup logging
     global logger
     log_dir = Path(args.outdir) / "logs"
     logger = setup_logging(log_dir, args.log_level)
-    
+
     start_time = datetime.now()
-    
+
     logger.info("=" * 60)
     logger.info("Neural Network SARSA Baseline Training")
     logger.info("=" * 60)
@@ -166,7 +172,9 @@ def main():
     logger.info(f"  Max steps: {args.max_steps}")
     logger.info(f"  Learning rate: {args.lr}")
     logger.info(f"  Gamma: {args.gamma}")
-    logger.info(f"  Epsilon: {args.eps_start} -> {args.eps_end} (decay: {args.eps_decay_steps})")
+    logger.info(
+        f"  Epsilon: {args.eps_start} -> {args.eps_end} (decay: {args.eps_decay_steps})"
+    )
     logger.info(f"  Seed: {args.seed}")
     logger.info(f"  Output dir: {args.outdir}")
 
@@ -194,9 +202,15 @@ def main():
     for ep in trange(args.episodes, desc="SARSA"):
         obs = env.reset()
         state_feat = obs_to_feat(obs)
-        state_t = torch.tensor(state_feat, dtype=torch.float32, device=device).unsqueeze(0)
+        state_t = torch.tensor(
+            state_feat, dtype=torch.float32, device=device
+        ).unsqueeze(0)
         qvals = qnet(state_t)
-        eps = max(args.eps_end, args.eps_start - (args.eps_start - args.eps_end) * (ep / args.eps_decay_steps))
+        eps = max(
+            args.eps_end,
+            args.eps_start
+            - (args.eps_start - args.eps_end) * (ep / args.eps_decay_steps),
+        )
         action = epsilon_greedy(qvals[0].detach().cpu(), eps)
         ep_reward = 0.0
 
@@ -205,7 +219,9 @@ def main():
             if isinstance(next_obs, tuple) and len(next_obs) == 2:
                 next_obs = next_obs[0]
             next_feat = obs_to_feat(next_obs)
-            next_t = torch.tensor(next_feat, dtype=torch.float32, device=device).unsqueeze(0)
+            next_t = torch.tensor(
+                next_feat, dtype=torch.float32, device=device
+            ).unsqueeze(0)
 
             with torch.no_grad():
                 q_next = qnet(next_t)
@@ -235,9 +251,22 @@ def main():
 
         # periodic evaluation
         if (ep + 1) % eval_every == 0 or ep == args.episodes - 1:
-            mean_eval = evaluate(MMPPEnv(seed=args.seed + 1000), lambda f: int(torch.argmax(qnet(torch.tensor(f, dtype=torch.float32).unsqueeze(0).to(device))).item()), episodes=5, max_steps=args.max_steps)
+            mean_eval = evaluate(
+                MMPPEnv(seed=args.seed + 1000),
+                lambda f: int(
+                    torch.argmax(
+                        qnet(
+                            torch.tensor(f, dtype=torch.float32).unsqueeze(0).to(device)
+                        )
+                    ).item()
+                ),
+                episodes=5,
+                max_steps=args.max_steps,
+            )
             eval_scores.append((ep + 1, mean_eval))
-            logger.info(f"Episode {ep + 1}/{args.episodes}: reward={ep_reward:.3f}, eval_mean={mean_eval:.3f}, eps={eps:.3f}")
+            logger.info(
+                f"Episode {ep + 1}/{args.episodes}: reward={ep_reward:.3f}, eval_mean={mean_eval:.3f}, eps={eps:.3f}"
+            )
 
     # save model
     model_path = os.path.join(args.outdir, f"sarsa_qnet_seed{args.seed}.pth")
@@ -258,11 +287,20 @@ def main():
     logger.info(f"Training plot saved to {plot_path}")
 
     # final evaluation
-    final_eval = evaluate(MMPPEnv(seed=args.seed + 999), lambda f: int(torch.argmax(qnet(torch.tensor(f, dtype=torch.float32).unsqueeze(0).to(device))).item()), episodes=20, max_steps=args.max_steps)
-    
+    final_eval = evaluate(
+        MMPPEnv(seed=args.seed + 999),
+        lambda f: int(
+            torch.argmax(
+                qnet(torch.tensor(f, dtype=torch.float32).unsqueeze(0).to(device))
+            ).item()
+        ),
+        episodes=20,
+        max_steps=args.max_steps,
+    )
+
     # Calculate elapsed time
     elapsed_time = datetime.now() - start_time
-    
+
     logger.info("=" * 60)
     logger.info("TRAINING COMPLETE")
     logger.info("=" * 60)

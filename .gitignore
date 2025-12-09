@@ -1,8 +1,5 @@
 .venv
-data
 __pycache__
-data
-scratch
 scratch
 .DS_Store
 
@@ -18,6 +15,20 @@ venv/
 .env/
 .venv/
 
-# Data (adjust as needed)
+# Data (raw data not committed)
 data/raw/
 data/interim/
+
+# Artifacts (generated outputs)
+artifacts/logs/
+artifacts/results/
+artifacts/models/
+# Keep demo plots and sample outputs
+!artifacts/plots/.gitkeep
+artifacts/plots/*
+docs/report
+keys
+
+# Weights & Biases
+wandb/
+*.wandb

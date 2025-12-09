@@ -1,98 +1,151 @@
-.PHONY: help install sync format lint test clean run-experiments
+.PHONY: help setup test lint format clean train quick optimize summary figures figures-paper figures-poster
 
-help: ## Show this help message
-	@echo 'Usage: make [target]'
-	@echo ''
-	@echo 'Available targets:'
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-20s %s\n", $$1, $$2}'
+help: ## Show available commands
+	@echo ""
+	@echo "Cloud Autoscaling RL - Available Commands"
+	@echo "==========================================="
+	@grep -E '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-20s %s\n", $$1, $$2}'
+	@echo ""
 
-install: ## Install uv package manager (requires brew on macOS or curl on Linux)
-	@command -v uv >/dev/null 2>&1 || { \
-		if command -v brew >/dev/null 2>&1; then \
-			echo "Installing uv via brew..."; \
-			brew install uv; \
-		else \
-			echo "Installing uv via curl..."; \
-			curl -LsSf https://astral.sh/uv/install.sh | sh; \
-		fi; \
-	}
-	@echo "uv is installed"
+# =============================================================================
+# Setup & Environment
+# =============================================================================
 
-setup: install ## Set up Python environment with uv
+setup: ## Install uv and set up Python environment
+	@command -v uv >/dev/null 2>&1 || curl -LsSf https://astral.sh/uv/install.sh | sh
 	uv venv --python=3.12
 	uv sync
-	@echo "Environment setup complete. Activate with: source .venv/bin/activate"
+	@echo "Environment ready. Run: source .venv/bin/activate"
 
-sync: ## Sync dependencies with uv
+sync: ## Sync dependencies
 	uv sync
 
-format: ## Format code with ruff
-	uv run ruff format .
+# =============================================================================
+# Code Quality
+# =============================================================================
 
-lint: ## Lint code with ruff
-	uv run ruff check .
-
-lint-fix: ## Lint and fix code with ruff
-	uv run ruff check --fix .
-
-test: ## Run all tests with pytest
+test: ## Run all tests
 	uv run pytest tests/ -v
 
-test-quick: ## Run tests quickly (no verbose)
-	uv run pytest tests/ -q
+lint: ## Check code style
+	uv run ruff check .
 
-test-cov: ## Run tests with coverage report
-	uv run pytest tests/ -v --cov=src --cov-report=term-missing
+format: ## Format and fix code
+	uv run ruff format .
+	uv run ruff check --fix .
 
-test-env: ## Run environment tests only
-	uv run pytest tests/test_gym_mmpp_env.py tests/test_cloud_autoscaling_env.py -v
+# =============================================================================
+# Training & Optimization
+# =============================================================================
 
-test-agents: ## Run agent tests only
-	uv run pytest tests/test_agents.py -v
+train: ## Run deep RL training (2000 episodes)
+	@echo "Running deep RL training (2000 episodes)..."
+	uv run python scripts/run_baselines.py --algo deep --episodes 2000
 
-test-policies: ## Run baseline policy tests only
-	uv run pytest tests/test_baseline_policies.py -v
+quick: ## Quick test run 
+	@echo "Running quick test..."
+	uv run python scripts/run_baselines.py --algo deep --quick
 
-clean: ## Remove virtual environment and cache files
-	rm -rf .venv
+quick-all: ## Quick test of all algorithms on all workloads
+	@echo "Running quick test of all algorithms on all workloads..."
+	@for workload in smooth bursty seasonal; do \
+		echo ""; \
+		echo "=== Testing on $$workload workload ==="; \
+		uv run python scripts/run_baselines.py --algo all --quick --workload $$workload --no-wandb --force; \
+	done
+	@echo ""
+	@echo "All quick tests complete!"
+
+train-all-scenarios: ## Train all algorithms on all workloads (full run)
+	@echo "Training all algorithms on all workloads (this will take a while)..."
+	@for workload in smooth bursty seasonal; do \
+		echo ""; \
+		echo "=== Training on $$workload workload ==="; \
+		uv run python scripts/run_baselines.py --algo all --episodes 1000 --workload $$workload; \
+	done
+	@echo ""
+	@echo "All training complete!"
+
+train-all-scenarios_500: ## Train all algorithms on all workloads (full run)
+	@echo "Training all algorithms on all workloads (this will take a while)..."
+	@for workload in smooth bursty seasonal; do \
+		echo ""; \
+		echo "=== Training on $$workload workload ==="; \
+		uv run python scripts/run_baselines.py --algo all --episodes 500 --workload $$workload; \
+	done
+	@echo ""
+	@echo "All training complete!"
+
+train-bursty: ## Train on bursty workload only
+	@echo "Training on bursty workload..."
+	uv run python scripts/run_baselines.py --algo deep --episodes 1000 --workload bursty
+
+train-seasonal: ## Train on seasonal workload only
+	@echo "Training on seasonal workload..."
+	uv run python scripts/run_baselines.py --algo deep --episodes 1000 --workload seasonal
+
+optimize: ## Run Optuna Bayesian optimization (50 trials)
+	@echo "Running Optuna hyperparameter optimization..."
+	uv run python src/optuna_optimization.py --trials 50 --episodes 500
+
+optimize-quick: ## Quick optimization test (10 trials)
+	@echo "Running quick optimization..."
+	uv run python src/optuna_optimization.py --quick
+
+# =============================================================================
+# Cleanup
+# =============================================================================
+
+clean: ## Remove cache files
 	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
 	find . -type d -name ".ruff_cache" -exec rm -rf {} + 2>/dev/null || true
-	find . -type f -name "*.pyc" -delete 2>/dev/null || true
+	find . -type d -name ".pytest_cache" -exec rm -rf {} + 2>/dev/null || true
+	rm -rf wandb/
+	@echo "Cache cleaned"
 
-# ============================================================================
-# Experiment Targets
-# ============================================================================
+clean-artifacts: ## Remove generated artifacts
+	rm -rf artifacts/logs/* artifacts/plots/* artifacts/results/* artifacts/models/*
+	@echo "Artifacts cleaned"
 
-run-experiments: ## Run all RL experiments (Q-Learning, SARSA, baselines)
-	uv run python scripts/run_baselines.py --algo all
+# =============================================================================
+# Figures & Reports
+# =============================================================================
 
-run-experiments-quick: ## Quick test run of experiments (fewer episodes)
-	uv run python scripts/run_baselines.py --algo all --quick
+figures: ## Generate publication-ready figures from latest results
+	@echo "Generating publication-ready figures..."
+	uv run python scripts/generate_figures.py --style presentation
+	@echo ""
+	@echo "📊 Figures saved to artifacts/plots/publication/"
 
-run-all: ## Run complete experiment suite including neural networks
-	uv run python scripts/run_all_experiments.py
+figures-paper: ## Generate paper-quality figures (PDF, 300 DPI)
+	@echo "Generating paper-quality figures..."
+	uv run python scripts/generate_figures.py --style paper
+	@echo ""
+	@echo "📄 Paper figures saved to artifacts/plots/publication/"
 
-run-all-quick: ## Quick test of complete experiment suite
-	uv run python scripts/run_all_experiments.py --quick
+figures-poster: ## Generate poster-quality figures (PNG, high DPI)
+	@echo "Generating poster-quality figures..."
+	uv run python scripts/generate_figures.py --style poster
+	@echo ""
+	@echo "🖼️  Poster figures saved to artifacts/plots/publication/"
 
-run-sarsa-nn: ## Train neural network SARSA baseline
-	uv run python scripts/sarsa_baseline.py
+# =============================================================================
+# Utilities
+# =============================================================================
 
-run-dqn: ## Train DQN baseline (requires stable-baselines3)
-	uv run python scripts/baseline_expanded.py --algo dqn
+summary: ## Show experiment summary
+	@echo ""
+	@echo "Cloud Autoscaling RL - Experiment Summary"
+	@echo "=========================================="
+	@echo ""
+	@echo "📁 Artifacts:"
+	@echo "  Results: $$(ls -1 artifacts/results/*.json 2>/dev/null | wc -l | tr -d ' ') files"
+	@echo "  Plots:   $$(ls -1 artifacts/plots/*.png 2>/dev/null | wc -l | tr -d ' ') files"
+	@echo "  Models:  $$(ls -1 artifacts/models/*.pth 2>/dev/null | wc -l | tr -d ' ') files"
+	@echo ""
+	@if ls artifacts/results/results_*.json 1>/dev/null 2>&1; then \
+		uv run python scripts/show_summary.py; \
+	fi
 
-run-ppo: ## Train PPO baseline (requires stable-baselines3)
-	uv run python scripts/baseline_expanded.py --algo ppo
-
-# ============================================================================
-# Jupyter & Development
-# ============================================================================
-
-jupyter: ## Start Jupyter notebook server
-	uv run jupyter notebook
-
-pre-commit-install: ## Install pre-commit hooks
-	uv run pre-commit install
-
-pre-commit-run: ## Run pre-commit hooks on all files
-	uv run pre-commit run --all-files
+jupyter: ## Start Jupyter notebook
+	uv run jupyter notebook notebooks/

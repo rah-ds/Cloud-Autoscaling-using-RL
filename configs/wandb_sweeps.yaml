@@ -1,0 +1,236 @@
+# Wandb Sweep Configurations for Cloud Autoscaling RL
+# =====================================================
+# These configurations define hyperparameter sweeps for wandb
+
+# Project settings (used by all sweeps)
+project: "cloud-autoscaling-rl"
+entity: null  # Uses default wandb entity
+
+# Q-Learning Sweep Configuration
+q_learning_sweep:
+  method: bayes  # Bayesian optimization
+  name: "q-learning-hyperparameter-sweep"
+  metric:
+    name: final_reward
+    goal: maximize
+  parameters:
+    algorithm:
+      value: "q-learning"
+    learning_rate:
+      min: 0.01
+      max: 0.5
+      distribution: uniform
+    discount_factor:
+      values: [0.9, 0.95, 0.99]
+    epsilon_decay:
+      min: 0.99
+      max: 0.999
+      distribution: uniform
+    epsilon_init:
+      values: [0.5, 0.8, 1.0]
+    n_episodes:
+      value: 500
+  early_terminate:
+    type: hyperband
+    min_iter: 100
+    eta: 3
+
+# SARSA Sweep Configuration
+sarsa_sweep:
+  method: bayes
+  name: "sarsa-hyperparameter-sweep"
+  metric:
+    name: final_reward
+    goal: maximize
+  parameters:
+    algorithm:
+      value: "sarsa"
+    learning_rate:
+      min: 0.01
+      max: 0.5
+      distribution: uniform
+    discount_factor:
+      values: [0.9, 0.95, 0.99]
+    epsilon_decay:
+      min: 0.99
+      max: 0.999
+      distribution: uniform
+    epsilon_init:
+      values: [0.5, 0.8, 1.0]
+    n_episodes:
+      value: 500
+
+# DQN Sweep Configuration
+dqn_sweep:
+  method: bayes
+  name: "dqn-hyperparameter-sweep"
+  metric:
+    name: final_reward
+    goal: maximize
+  parameters:
+    algorithm:
+      values: ["dqn", "double-dqn", "dueling-dqn"]
+    learning_rate:
+      min: 0.0001
+      max: 0.01
+      distribution: log_uniform_values
+    discount_factor:
+      values: [0.95, 0.99]
+    batch_size:
+      values: [32, 64, 128]
+    hidden_dim:
+      values: [64, 128, 256]
+    target_update_freq:
+      values: [10, 50, 100]
+    n_episodes:
+      value: 500
+  early_terminate:
+    type: hyperband
+    min_iter: 100
+    eta: 3
+
+# Full Cross-Algorithm Sweep
+full_sweep:
+  method: grid
+  name: "full-algorithm-comparison"
+  metric:
+    name: final_reward
+    goal: maximize
+  parameters:
+    algorithm:
+      values: ["q-learning", "sarsa", "dqn", "double-dqn", "dueling-dqn"]
+    # Common hyperparameters (subset for grid search)
+    learning_rate:
+      values: [0.01, 0.1]
+    discount_factor:
+      values: [0.95, 0.99]
+    n_episodes:
+      value: 500
+
+# Exploration Strategy Sweep
+exploration_sweep:
+  method: random
+  name: "exploration-strategy-sweep"
+  run_cap: 30
+  metric:
+    name: final_reward
+    goal: maximize
+  parameters:
+    algorithm:
+      values: ["q-learning", "sarsa"]
+    epsilon_init:
+      values: [0.3, 0.5, 0.8, 1.0]
+    epsilon_decay:
+      values: [0.9, 0.95, 0.99, 0.995, 0.999]
+    epsilon_min:
+      values: [0.01, 0.05, 0.1]
+    n_episodes:
+      value: 500
+
+# Quick Test Sweep (for validation)
+quick_sweep:
+  method: random
+  name: "quick-validation-sweep"
+  run_cap: 5
+  metric:
+    name: final_reward
+    goal: maximize
+  parameters:
+    algorithm:
+      values: ["q-learning", "sarsa"]
+    learning_rate:
+      values: [0.1]
+    discount_factor:
+      values: [0.95]
+    n_episodes:
+      value: 100
+
+# =============================================================================
+# Workload Scenario Sweeps
+# =============================================================================
+
+# Multi-Workload Sweep - tests all algorithms across all workload types
+workload_sweep:
+  method: grid
+  name: "workload-generalization-sweep"
+  metric:
+    name: final_reward
+    goal: maximize
+  parameters:
+    algorithm:
+      values: ["dqn", "double-dqn", "dueling-dqn", "reinforce"]
+    workload:
+      values: ["smooth", "bursty", "seasonal"]
+    learning_rate:
+      values: [0.001]
+    discount_factor:
+      values: [0.99]
+    n_episodes:
+      value: 500
+
+# Bursty Environment Sweep - focused on high-volatility workloads
+bursty_sweep:
+  method: bayes
+  name: "bursty-environment-sweep"
+  metric:
+    name: final_reward
+    goal: maximize
+  parameters:
+    algorithm:
+      values: ["dqn", "double-dqn", "dueling-dqn"]
+    workload:
+      value: "bursty"
+    learning_rate:
+      min: 0.0001
+      max: 0.01
+      distribution: log_uniform_values
+    discount_factor:
+      values: [0.95, 0.99]
+    batch_size:
+      values: [32, 64]
+    n_episodes:
+      value: 500
+  early_terminate:
+    type: hyperband
+    min_iter: 100
+    eta: 3
+
+# Seasonal Environment Sweep - focused on periodic patterns
+seasonal_sweep:
+  method: bayes
+  name: "seasonal-environment-sweep"
+  metric:
+    name: final_reward
+    goal: maximize
+  parameters:
+    algorithm:
+      values: ["dqn", "double-dqn", "dueling-dqn"]
+    workload:
+      value: "seasonal"
+    learning_rate:
+      min: 0.0001
+      max: 0.01
+      distribution: log_uniform_values
+    discount_factor:
+      values: [0.95, 0.99]
+    n_episodes:
+      value: 500
+
+# Quick Multi-Scenario Test (for CI/validation)
+quick_scenario_sweep:
+  method: grid
+  name: "quick-scenario-test"
+  metric:
+    name: final_reward
+    goal: maximize
+  parameters:
+    algorithm:
+      values: ["dqn", "reinforce"]
+    workload:
+      values: ["smooth", "bursty", "seasonal"]
+    learning_rate:
+      values: [0.001]
+    discount_factor:
+      values: [0.99]
+    n_episodes:
+      value: 100

@@ -28,14 +28,14 @@ PROJECT_ROOT = Path(__file__).parent.parent
 def setup_logging(log_dir: Path, log_level: str = "INFO") -> logging.Logger:
     """Configure logging with both file and console handlers."""
     log_dir.mkdir(parents=True, exist_ok=True)
-    
+
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     log_file = log_dir / f"experiment_suite_{timestamp}.log"
-    
+
     logger = logging.getLogger("run_all_experiments")
     logger.setLevel(getattr(logging, log_level.upper()))
     logger.handlers.clear()
-    
+
     # File handler
     file_formatter = logging.Formatter(
         "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -44,19 +44,18 @@ def setup_logging(log_dir: Path, log_level: str = "INFO") -> logging.Logger:
     file_handler.setLevel(logging.DEBUG)
     file_handler.setFormatter(file_formatter)
     logger.addHandler(file_handler)
-    
+
     # Console handler
     console_formatter = logging.Formatter(
-        "%(asctime)s - %(levelname)s - %(message)s",
-        datefmt="%H:%M:%S"
+        "%(asctime)s - %(levelname)s - %(message)s", datefmt="%H:%M:%S"
     )
     console_handler = logging.StreamHandler()
     console_handler.setLevel(getattr(logging, log_level.upper()))
     console_handler.setFormatter(console_formatter)
     logger.addHandler(console_handler)
-    
+
     logger.info(f"Logging initialized. Log file: {log_file}")
-    
+
     return logger
 
 
@@ -69,14 +68,10 @@ def run_command(cmd: list, description: str) -> bool:
     logger.info("=" * 60)
     logger.info(f"Running: {description}")
     logger.debug(f"Command: {' '.join(cmd)}")
-    
+
     try:
         result = subprocess.run(
-            cmd, 
-            check=True, 
-            cwd=PROJECT_ROOT,
-            capture_output=True,
-            text=True
+            cmd, check=True, cwd=PROJECT_ROOT, capture_output=True, text=True
         )
         logger.info(f"✓ {description} completed successfully")
         if result.stdout:
@@ -94,29 +89,37 @@ def run_command(cmd: list, description: str) -> bool:
 
 def main():
     parser = argparse.ArgumentParser(description="Run all RL experiments")
-    parser.add_argument("--quick", action="store_true", 
-                        help="Quick test run with fewer episodes")
-    parser.add_argument("--no-nn", action="store_true",
-                        help="Skip neural network experiments (stable-baselines3)")
-    parser.add_argument("--episodes", type=int, default=1000,
-                        help="Number of training episodes")
-    parser.add_argument("--seed", type=int, default=42,
-                        help="Random seed")
-    parser.add_argument("--log-level", type=str, default="INFO",
-                        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
-                        help="Logging level")
+    parser.add_argument(
+        "--quick", action="store_true", help="Quick test run with fewer episodes"
+    )
+    parser.add_argument(
+        "--no-nn",
+        action="store_true",
+        help="Skip neural network experiments (stable-baselines3)",
+    )
+    parser.add_argument(
+        "--episodes", type=int, default=1000, help="Number of training episodes"
+    )
+    parser.add_argument("--seed", type=int, default=42, help="Random seed")
+    parser.add_argument(
+        "--log-level",
+        type=str,
+        default="INFO",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+        help="Logging level",
+    )
     args = parser.parse_args()
-    
+
     # Setup logging
     global logger
     log_dir = PROJECT_ROOT / "artifacts" / "logs"
     logger = setup_logging(log_dir, args.log_level)
-    
+
     python = sys.executable
     episodes = 100 if args.quick else args.episodes
-    
+
     start_time = datetime.now()
-    
+
     logger.info("=" * 60)
     logger.info("Cloud Autoscaling RL - Complete Experiment Suite")
     logger.info("=" * 60)
@@ -127,55 +130,104 @@ def main():
     logger.info(f"  Skip NN: {args.no_nn}")
     logger.info(f"  Seed: {args.seed}")
     logger.info(f"  Log level: {args.log_level}")
-    
+
     results = []
-    
+
     # 1. Run tabular RL experiments (Q-Learning and SARSA)
     logger.info("Starting Experiment 1: Tabular RL Methods")
-    results.append(run_command(
-        [python, "scripts/run_baselines.py", 
-         "--episodes", str(episodes),
-         "--seed", str(args.seed),
-         "--algo", "all"],
-        "Tabular RL Experiments (Q-Learning + SARSA + Baselines)"
-    ))
-    
-    # 2. Run SARSA neural network baseline
+    results.append(
+        run_command(
+            [
+                python,
+                "scripts/run_baselines.py",
+                "--episodes",
+                str(episodes),
+                "--seed",
+                str(args.seed),
+                "--algo",
+                "tabular",
+            ],
+            "Tabular RL Experiments (Q-Learning + SARSA + Baselines)",
+        )
+    )
+
+    # 2. Run Deep RL experiments (DQN variants)
     if not args.no_nn:
-        logger.info("Starting Experiment 2: Neural Network Baselines")
-        results.append(run_command(
-            [python, "scripts/sarsa_baseline.py",
-             "--episodes", str(min(episodes * 2, 2000)),
-             "--seed", str(args.seed)],
-            "Neural Network SARSA Baseline"
-        ))
-        
-        # 3. Run DQN baseline
-        logger.info("Starting Experiment 3: DQN (stable-baselines3)")
-        results.append(run_command(
-            [python, "scripts/baseline_expanded.py",
-             "--algo", "dqn",
-             "--timesteps", str(episodes * 100),
-             "--seed", str(args.seed)],
-            "DQN Baseline (stable-baselines3)"
-        ))
-        
-        # 4. Run PPO baseline
-        logger.info("Starting Experiment 4: PPO (stable-baselines3)")
-        results.append(run_command(
-            [python, "scripts/baseline_expanded.py",
-             "--algo", "ppo",
-             "--timesteps", str(episodes * 100),
-             "--seed", str(args.seed)],
-            "PPO Baseline (stable-baselines3)"
-        ))
+        logger.info("Starting Experiment 2: Deep RL Methods (DQN variants)")
+        results.append(
+            run_command(
+                [
+                    python,
+                    "scripts/run_baselines.py",
+                    "--episodes",
+                    str(episodes),
+                    "--seed",
+                    str(args.seed),
+                    "--algo",
+                    "deep",
+                ],
+                "Deep RL Experiments (DQN + Double DQN + Dueling DQN)",
+            )
+        )
+
+        # 3. Run SARSA neural network baseline
+        logger.info("Starting Experiment 3: Neural Network SARSA")
+        results.append(
+            run_command(
+                [
+                    python,
+                    "scripts/sarsa_baseline.py",
+                    "--episodes",
+                    str(min(episodes * 2, 2000)),
+                    "--seed",
+                    str(args.seed),
+                ],
+                "Neural Network SARSA Baseline",
+            )
+        )
+
+        # 4. Run SB3 DQN baseline
+        logger.info("Starting Experiment 4: SB3 DQN")
+        results.append(
+            run_command(
+                [
+                    python,
+                    "scripts/baseline_expanded.py",
+                    "--algo",
+                    "dqn",
+                    "--timesteps",
+                    str(episodes * 100),
+                    "--seed",
+                    str(args.seed),
+                ],
+                "DQN Baseline (stable-baselines3)",
+            )
+        )
+
+        # 5. Run SB3 PPO baseline
+        logger.info("Starting Experiment 5: SB3 PPO")
+        results.append(
+            run_command(
+                [
+                    python,
+                    "scripts/baseline_expanded.py",
+                    "--algo",
+                    "ppo",
+                    "--timesteps",
+                    str(episodes * 100),
+                    "--seed",
+                    str(args.seed),
+                ],
+                "PPO Baseline (stable-baselines3)",
+            )
+        )
     else:
         logger.info("Skipping neural network experiments (--no-nn flag)")
-    
+
     # Calculate elapsed time
     end_time = datetime.now()
     elapsed_time = end_time - start_time
-    
+
     # Summary
     logger.info("=" * 60)
     logger.info("EXPERIMENT SUITE COMPLETE")
@@ -185,7 +237,7 @@ def main():
     logger.info(f"Total experiments: {len(results)}")
     logger.info(f"Successful: {sum(results)}")
     logger.info(f"Failed: {len(results) - sum(results)}")
-    
+
     # List output files
     artifacts_dir = PROJECT_ROOT / "artifacts"
     if artifacts_dir.exists():
@@ -193,12 +245,12 @@ def main():
         for f in sorted(artifacts_dir.rglob("*")):
             if f.is_file():
                 logger.debug(f"  {f.relative_to(PROJECT_ROOT)}")
-    
+
     if all(results):
         logger.info("All experiments completed successfully!")
     else:
         logger.warning("Some experiments failed. Check logs for details.")
-    
+
     return 0 if all(results) else 1
 
 

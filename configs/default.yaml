@@ -11,12 +11,22 @@ experiment:
   save_models: true
   save_plots: true
 
+# Weights & Biases (wandb) Configuration
+wandb:
+  enabled: true
+  project: "cloud-autoscaling-rl"
+  entity: null  # Uses default entity from wandb account
+  mode: "online"  # "online", "offline", or "disabled"
+  tags: []
+  notes: ""
+  log_frequency: 1  # Log every N episodes
+
 # Output Paths
 paths:
   output_dir: "artifacts/results"
   models_dir: "artifacts/models"
   plots_dir: "artifacts/plots"
-  logs_dir: "artifacts/results/logs"
+  logs_dir: "artifacts/logs"
 
 # Environment Configuration
 environment:

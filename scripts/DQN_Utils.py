@@ -26,10 +26,8 @@ flexible training and evaluation strategies on time-series data.
 """
 
 import numpy as np
-import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
-import torch.optim as optim
 import torch.nn.functional as F
 import random
 from collections import deque
@@ -38,9 +36,9 @@ import pandas as pd
 
 # Global split ranges for the 10,000-step df_usage
 SPLIT_RANGES = {
-    "train": (0, 6999),     # inclusive
-    "val":   (7000, 8499),  # inclusive
-    "test":  (8500, 9999),  # inclusive
+    "train": (0, 6999),  # inclusive
+    "val": (7000, 8499),  # inclusive
+    "test": (8500, 9999),  # inclusive
 }
 
 
@@ -75,7 +73,6 @@ class QNetwork(nn.Module):
         x = F.relu(self.fc2(x))
         q_values = self.fc3(x)  # [batch, action_space_size]
         return q_values
-
 
 
 # ----- Dueling QNetwork -----
@@ -118,7 +115,7 @@ class DuelingQNetwork(nn.Module):
 
         # Value stream
         value = F.relu(self.fc_value(x))
-        value = self.value_out(value)          # [batch, 1]
+        value = self.value_out(value)  # [batch, 1]
 
         # Advantage stream
         advantage = F.relu(self.fc_advantage(x))
@@ -126,16 +123,12 @@ class DuelingQNetwork(nn.Module):
 
         advantage_mean = advantage.mean(dim=1, keepdim=True)  # [batch, 1]
 
-        q_values = value + (advantage - advantage_mean)       # [batch, A]
+        q_values = value + (advantage - advantage_mean)  # [batch, A]
         return q_values
 
 
-
-
-from collections import deque
-import random
-import numpy as np
 import torch
+
 
 class ReplayBuffer:
     def __init__(self, buffer_size, batch_size, device, seed=0):
@@ -154,25 +147,37 @@ class ReplayBuffer:
         """Randomly sample a batch of experiences from memory."""
         experiences = random.sample(self.memory, k=self.batch_size)
 
-        states = torch.from_numpy(
-            np.vstack([e[0] for e in experiences if e is not None])
-        ).float().to(self.device)
+        states = (
+            torch.from_numpy(np.vstack([e[0] for e in experiences if e is not None]))
+            .float()
+            .to(self.device)
+        )
 
-        actions = torch.from_numpy(
-            np.vstack([e[1] for e in experiences if e is not None])
-        ).long().to(self.device)
+        actions = (
+            torch.from_numpy(np.vstack([e[1] for e in experiences if e is not None]))
+            .long()
+            .to(self.device)
+        )
 
-        rewards = torch.from_numpy(
-            np.vstack([e[2] for e in experiences if e is not None])
-        ).float().to(self.device)
+        rewards = (
+            torch.from_numpy(np.vstack([e[2] for e in experiences if e is not None]))
+            .float()
+            .to(self.device)
+        )
 
-        next_states = torch.from_numpy(
-            np.vstack([e[3] for e in experiences if e is not None])
-        ).float().to(self.device)
+        next_states = (
+            torch.from_numpy(np.vstack([e[3] for e in experiences if e is not None]))
+            .float()
+            .to(self.device)
+        )
 
-        dones = torch.from_numpy(
-            np.vstack([e[4] for e in experiences if e is not None]).astype(np.uint8)
-        ).float().to(self.device)
+        dones = (
+            torch.from_numpy(
+                np.vstack([e[4] for e in experiences if e is not None]).astype(np.uint8)
+            )
+            .float()
+            .to(self.device)
+        )
 
         return (states, actions, rewards, next_states, dones)
 
@@ -181,19 +186,24 @@ class ReplayBuffer:
         return len(self.memory)
 
 
-
-def train_agent(agent, env, num_episodes, max_steps_per_episode,
-                epsilon_start, epsilon_end, epsilon_decay, split: str = "train",
-                use_random_windows: bool = False):
-
+def train_agent(
+    agent,
+    env,
+    num_episodes,
+    max_steps_per_episode,
+    epsilon_start,
+    epsilon_end,
+    epsilon_decay,
+    split: str = "train",
+    use_random_windows: bool = False,
+):
     scores = []
     epsilon = epsilon_start
 
     for i_episode in range(num_episodes):
-
         if use_random_windows:
-            state, info = reset_random_window_for_split(env, episode_length=max_steps_per_episode,
-            split = split
+            state, info = reset_random_window_for_split(
+                env, episode_length=max_steps_per_episode, split=split
             )
         else:
             state, info = env.reset()
@@ -215,38 +225,54 @@ def train_agent(agent, env, num_episodes, max_steps_per_episode,
         epsilon = max(epsilon_end, epsilon_decay * epsilon)
 
         if i_episode % 10 == 0:
-            print(f'Episode {i_episode}\tAverage Score: {np.mean(scores[-10:]):.2f}')
+            print(f"Episode {i_episode}\tAverage Score: {np.mean(scores[-10:]):.2f}")
 
     print("Training finished.")
     return scores
 
-def evaluate_agent(agent, env, num_evaluation_episodes, max_steps_per_evaluation_episode, split: str = "test", use_random_windows: bool = False):
+
+def evaluate_agent(
+    agent,
+    env,
+    num_evaluation_episodes,
+    max_steps_per_evaluation_episode,
+    split: str = "test",
+    use_random_windows: bool = False,
+):
     eval_scores = []
     evaluation_results = []
 
     for i_episode in range(1, num_evaluation_episodes + 1):
         if use_random_windows:
-            state, info = reset_random_window_for_split(env, episode_length=max_steps_per_evaluation_episode, split = split )
+            state, info = reset_random_window_for_split(
+                env, episode_length=max_steps_per_evaluation_episode, split=split
+            )
         else:
             state, info = env.reset()
         score = 0
         episode_results = []
 
         for t in range(max_steps_per_evaluation_episode):
-            action = agent.act(state, eps=0.)
+            action = agent.act(state, eps=0.0)
             next_state, reward, terminated, truncated, info = env.step(action)
 
-            episode_results.append({
-                'step': t,
-                'action': action,
-                'reward': reward,
-                'current_capacity': info['current_capacity'],
-                'utilization': info['utilization'],
-                'demand_cpu': info['demand_cpu'],
-                'cost_penalty': info['reward_components'].get('cost_penalty', np.nan),
-                'sla_penalty': info['reward_components'].get('sla_penalty', np.nan),
-                'util_deviation_penalty': info['reward_components'].get('util_deviation_penalty', np.nan)
-            })
+            episode_results.append(
+                {
+                    "step": t,
+                    "action": action,
+                    "reward": reward,
+                    "current_capacity": info["current_capacity"],
+                    "utilization": info["utilization"],
+                    "demand_cpu": info["demand_cpu"],
+                    "cost_penalty": info["reward_components"].get(
+                        "cost_penalty", np.nan
+                    ),
+                    "sla_penalty": info["reward_components"].get("sla_penalty", np.nan),
+                    "util_deviation_penalty": info["reward_components"].get(
+                        "util_deviation_penalty", np.nan
+                    ),
+                }
+            )
 
             state = next_state
             score += reward
@@ -257,18 +283,23 @@ def evaluate_agent(agent, env, num_evaluation_episodes, max_steps_per_evaluation
         eval_scores.append(score)
         evaluation_results.extend(episode_results)
 
-        print(f'Evaluation Episode {i_episode}\tScore: {score:.2f}')
+        print(f"Evaluation Episode {i_episode}\tScore: {score:.2f}")
 
-    print(f'\nAverage Evaluation Score over {num_evaluation_episodes} episodes: {np.mean(eval_scores):.2f}')
+    print(
+        f"\nAverage Evaluation Score over {num_evaluation_episodes} episodes: {np.mean(eval_scores):.2f}"
+    )
 
     evaluation_results_df = pd.DataFrame(evaluation_results)
-    evaluation_results_df.set_index('step', inplace=True)
+    evaluation_results_df.set_index("step", inplace=True)
 
     return eval_scores, evaluation_results_df
-import numpy as np
 
 
-def sample_start_index_for_split(split: str, episode_length: int, max_steps: int) -> int:
+
+
+def sample_start_index_for_split(
+    split: str, episode_length: int, max_steps: int
+) -> int:
     """
     Sample a random start index for a contiguous episode window of length `episode_length`
     restricted to the specified split.
@@ -282,7 +313,9 @@ def sample_start_index_for_split(split: str, episode_length: int, max_steps: int
         start_idx (int): starting index for the episode window.
     """
     if split not in SPLIT_RANGES:
-        raise ValueError(f"Unknown split '{split}'. Expected one of {list(SPLIT_RANGES.keys())}.")
+        raise ValueError(
+            f"Unknown split '{split}'. Expected one of {list(SPLIT_RANGES.keys())}."
+        )
 
     split_start, split_end = SPLIT_RANGES[split]
 
@@ -302,6 +335,7 @@ def sample_start_index_for_split(split: str, episode_length: int, max_steps: int
     start_idx = np.random.randint(split_start, max_start_idx + 1)
 
     return start_idx
+
 
 def reset_random_window_for_split(env, episode_length: int, split: str):
     """

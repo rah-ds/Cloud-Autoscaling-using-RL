@@ -27,10 +27,10 @@ class TestQNetwork:
         """Test that forward pass produces correct output shape."""
         state_dim, action_dim = 4, 3
         network = QNetwork(state_dim, action_dim)
-        
+
         state = torch.randn(1, state_dim)
         output = network(state)
-        
+
         assert output.shape == (1, action_dim)
 
     def test_batch_forward_pass(self) -> None:
@@ -38,10 +38,10 @@ class TestQNetwork:
         state_dim, action_dim = 4, 3
         batch_size = 32
         network = QNetwork(state_dim, action_dim)
-        
+
         states = torch.randn(batch_size, state_dim)
         output = network(states)
-        
+
         assert output.shape == (batch_size, action_dim)
 
     def test_custom_hidden_dims(self) -> None:
@@ -49,10 +49,10 @@ class TestQNetwork:
         state_dim, action_dim = 4, 3
         hidden_dims = (64, 32, 16)
         network = QNetwork(state_dim, action_dim, hidden_dims)
-        
+
         state = torch.randn(1, state_dim)
         output = network(state)
-        
+
         assert output.shape == (1, action_dim)
 
 
@@ -63,22 +63,22 @@ class TestDuelingQNetwork:
         """Test that forward pass produces correct output shape."""
         state_dim, action_dim = 4, 3
         network = DuelingQNetwork(state_dim, action_dim)
-        
+
         state = torch.randn(1, state_dim)
         output = network(state)
-        
+
         assert output.shape == (1, action_dim)
 
     def test_advantage_centering(self) -> None:
         """Test that advantage values are centered (mean = 0)."""
         state_dim, action_dim = 4, 3
         network = DuelingQNetwork(state_dim, action_dim)
-        
+
         # The Q-values should be V(s) + A(s,a) - mean(A)
         # We can't directly check this, but we verify output shape
         state = torch.randn(1, state_dim)
         output = network(state)
-        
+
         assert output.shape == (1, action_dim)
 
 
@@ -88,18 +88,18 @@ class TestReplayBuffer:
     def test_push_and_sample(self) -> None:
         """Test adding experiences and sampling."""
         buffer = ReplayBuffer(capacity=100)
-        
+
         # Add some experiences
         for i in range(50):
             state = np.array([i, i + 1, i + 2], dtype=np.float32)
             next_state = np.array([i + 1, i + 2, i + 3], dtype=np.float32)
             buffer.push(state, i % 3, float(i), next_state, i % 10 == 0)
-        
+
         assert len(buffer) == 50
-        
+
         # Sample a batch
         states, actions, rewards, next_states, dones = buffer.sample(16)
-        
+
         assert states.shape == (16, 3)
         assert actions.shape == (16,)
         assert rewards.shape == (16,)
@@ -109,11 +109,11 @@ class TestReplayBuffer:
     def test_capacity_limit(self) -> None:
         """Test that buffer respects capacity limit."""
         buffer = ReplayBuffer(capacity=10)
-        
+
         for i in range(20):
             state = np.array([i], dtype=np.float32)
             buffer.push(state, 0, 0.0, state, False)
-        
+
         assert len(buffer) == 10
 
 
@@ -142,7 +142,7 @@ class TestDQNAgent:
     def test_select_action(self, agent: DQNAgent) -> None:
         """Test action selection."""
         state = np.array([1.0, 2.0, 3.0, 4.0], dtype=np.float32)
-        
+
         action = agent.select_action(state, training=True)
         assert 0 <= action < 3
 
@@ -150,7 +150,7 @@ class TestDQNAgent:
         """Test greedy action selection."""
         agent.epsilon = 0.0  # Force greedy
         state = np.array([1.0, 2.0, 3.0, 4.0], dtype=np.float32)
-        
+
         # Greedy action should be deterministic
         actions = [agent.select_action(state, training=False) for _ in range(10)]
         assert len(set(actions)) == 1  # All same action
@@ -162,12 +162,12 @@ class TestDQNAgent:
             state = np.random.randn(4).astype(np.float32)
             next_state = np.random.randn(4).astype(np.float32)
             agent.update(state, i % 3, float(i), next_state, i % 10 == 0)
-        
+
         # After enough experiences, should return loss
         state = np.random.randn(4).astype(np.float32)
         next_state = np.random.randn(4).astype(np.float32)
         loss = agent.update(state, 0, 1.0, next_state, False)
-        
+
         assert loss is not None
         assert isinstance(loss, float)
 
@@ -175,7 +175,7 @@ class TestDQNAgent:
         """Test epsilon decay."""
         initial_epsilon = agent.epsilon
         agent.decay_epsilon()
-        
+
         assert agent.epsilon < initial_epsilon
         assert agent.epsilon >= agent.epsilon_min
 
@@ -202,12 +202,12 @@ class TestDoubleDQNAgent:
             state = np.random.randn(4).astype(np.float32)
             next_state = np.random.randn(4).astype(np.float32)
             agent.update(state, i % 3, float(i), next_state, i % 10 == 0)
-        
+
         # Update should work
         state = np.random.randn(4).astype(np.float32)
         next_state = np.random.randn(4).astype(np.float32)
         loss = agent.update(state, 0, 1.0, next_state, False)
-        
+
         assert loss is not None
 
 
@@ -235,7 +235,7 @@ class TestDuelingDQNAgent:
         """Test action selection with dueling network."""
         state = np.array([1.0, 2.0, 3.0, 4.0], dtype=np.float32)
         action = agent.select_action(state, training=True)
-        
+
         assert 0 <= action < 3
 
 
@@ -245,7 +245,7 @@ class TestDeviceHandling:
     def test_auto_device_selection(self) -> None:
         """Test automatic device selection."""
         agent = DQNAgent(state_dim=4, action_dim=3)
-        
+
         # Should select an available device
         assert agent.device in [
             torch.device("cuda"),

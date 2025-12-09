@@ -1,0 +1,27 @@
+program: scripts/train_sweep.py
+method: bayes
+name: "q-learning-hyperparameter-sweep"
+metric:
+  name: final_reward
+  goal: maximize
+parameters:
+  algorithm:
+    value: "q-learning"
+  learning_rate:
+    min: 0.01
+    max: 0.5
+    distribution: uniform
+  discount_factor:
+    values: [0.9, 0.95, 0.99]
+  epsilon_decay:
+    min: 0.99
+    max: 0.999
+    distribution: uniform
+  epsilon_init:
+    values: [0.5, 0.8, 1.0]
+  n_episodes:
+    value: 500
+early_terminate:
+  type: hyperband
+  min_iter: 100
+  eta: 3

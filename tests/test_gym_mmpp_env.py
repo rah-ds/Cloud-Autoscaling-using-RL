@@ -53,7 +53,7 @@ class TestMMPPEnv:
         """Verify observation space structure."""
         env = MMPPEnv(seed=0)
         obs = env.reset()
-        
+
         assert "arrivals" in env.observation_space.spaces
         assert "state" in env.observation_space.spaces
         assert obs["arrivals"].shape == (1,)
@@ -68,7 +68,7 @@ class TestMMPPEnv:
         """Verify reward is negative (cost-based)."""
         env = MMPPEnv(seed=42)
         env.reset()
-        
+
         _, reward, _, _ = env.step(5)  # Allocate 5 servers
         # Reward should be negative (cost of servers + unmet demand penalty)
         assert isinstance(reward, float)

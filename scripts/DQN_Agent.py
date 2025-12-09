@@ -36,9 +36,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import random
-from collections import deque
-import pandas as pd
-from DQN_Utils import QNetwork, ReplayBuffer, DuelingQNetwork
+from DQN_Utils import QNetwork, ReplayBuffer
 
 
 # --- DQNAgent Definition
@@ -55,7 +53,7 @@ class DQNAgent:
         lr=5e-4,
         tau=1e-3,
         update_every=4,
-        network_class=QNetwork  #choose which network to use
+        network_class=QNetwork,  # choose which network to use
     ):
         self.observation_space_shape = observation_space_shape
         self.action_space_size = action_space_size
@@ -89,7 +87,6 @@ class DQNAgent:
             seed=seed,
         )
         self.t_step = 0
-        
 
     def step(self, state, action, reward, next_state, done):
         self.memory.add(state, action, reward, next_state, done)
@@ -99,7 +96,7 @@ class DQNAgent:
                 experiences = self.memory.sample()
                 self.learn(experiences, self.gamma)
 
-    def act(self, state, eps=0.):
+    def act(self, state, eps=0.0):
         state = torch.from_numpy(state).float().unsqueeze(0).to(self.device)
         self.qnetwork_local.eval()
         with torch.no_grad():
@@ -112,7 +109,9 @@ class DQNAgent:
 
     def learn(self, experiences, gamma):
         states, actions, rewards, next_states, dones = experiences
-        Q_targets_next = self.qnetwork_target(next_states).detach().max(1)[0].unsqueeze(1)
+        Q_targets_next = (
+            self.qnetwork_target(next_states).detach().max(1)[0].unsqueeze(1)
+        )
         Q_targets = rewards + (gamma * Q_targets_next * (1 - dones))
         Q_expecteds = self.qnetwork_local(states).gather(1, actions)
         loss = nn.MSELoss()(Q_expecteds, Q_targets)
@@ -122,8 +121,12 @@ class DQNAgent:
         self.soft_update(self.qnetwork_local, self.qnetwork_target, self.tau)
 
     def soft_update(self, local_model, target_model, tau):
-        for target_param, local_param in zip(target_model.parameters(), local_model.parameters()):
-            target_param.data.copy_(tau*local_param.data + (1.0-tau)*target_param.data)
+        for target_param, local_param in zip(
+            target_model.parameters(), local_model.parameters()
+        ):
+            target_param.data.copy_(
+                tau * local_param.data + (1.0 - tau) * target_param.data
+            )
 
     # ----------------------
     # Persistence helpers
@@ -137,5 +140,3 @@ class DQNAgent:
         state_dict = torch.load(path, map_location=self.device)
         self.qnetwork_local.load_state_dict(state_dict)
         self.qnetwork_target.load_state_dict(state_dict)
-
-

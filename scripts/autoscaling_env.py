@@ -34,20 +34,31 @@ import numpy as np
 import pandas as pd
 from dataclasses import dataclass
 
+
 # Define a data class to hold environment configuration parameters
 @dataclass
 class AutoScalingEnvConfig:
-    initial_capacity: int = 10          # The starting number of machines in the cluster.
-    target_utilization: float = 0.6     # The desired average CPU utilization for the cluster.
-    sla_threshold: float = 0.8          # The utilization threshold above which SLA violations occur.
-    cost_per_machine_per_minute: float = 0.002  # The cost of running one machine for one minute.
-    min_capacity: int = 1               # The minimum number of machines the cluster can scale down to.
-    max_capacity: int = 12              # The maximum number of machines the cluster can scale up to.
-    cooldown_period: int = 2            # Steps the agent must wait after a scaling action.
-    demand_scale: float = 1500.0        # Scales avg_cpu up to "demand" CPU.
-    cost_weight: float = 1.0            # Weight for cost term in reward.
-    util_weight: float = 3.0            # Weight for utilization deviation term.
-    sla_weight: float = 15.0            # Weight for SLA violation term.
+    initial_capacity: int = 10  # The starting number of machines in the cluster.
+    target_utilization: float = (
+        0.6  # The desired average CPU utilization for the cluster.
+    )
+    sla_threshold: float = (
+        0.8  # The utilization threshold above which SLA violations occur.
+    )
+    cost_per_machine_per_minute: float = (
+        0.002  # The cost of running one machine for one minute.
+    )
+    min_capacity: int = (
+        1  # The minimum number of machines the cluster can scale down to.
+    )
+    max_capacity: int = (
+        12  # The maximum number of machines the cluster can scale up to.
+    )
+    cooldown_period: int = 2  # Steps the agent must wait after a scaling action.
+    demand_scale: float = 1500.0  # Scales avg_cpu up to "demand" CPU.
+    cost_weight: float = 1.0  # Weight for cost term in reward.
+    util_weight: float = 3.0  # Weight for utilization deviation term.
+    sla_weight: float = 15.0  # Weight for SLA violation term.
 
 
 # -------------------------------------------------------------------
@@ -105,7 +116,9 @@ def get_env_config(profile: str) -> AutoScalingEnvConfig:
     """
     key = profile.upper()
     if key not in ENV_CONFIGS:
-        raise ValueError(f"Unknown environment profile '{profile}'. Use 'A', 'B', or 'C'.")
+        raise ValueError(
+            f"Unknown environment profile '{profile}'. Use 'A', 'B', or 'C'."
+        )
     return ENV_CONFIGS[key]
 
 
@@ -176,8 +189,7 @@ class AutoScalingEnv(gym.Env):
         # Clamp step to valid range to avoid IndexError
         idx = min(self.current_step, self.max_steps - 1)
         row = self.df_usage.iloc[idx]
-        obs = np.array([row["avg_cpu"], self.current_capacity],
-                       dtype=np.float32)
+        obs = np.array([row["avg_cpu"], self.current_capacity], dtype=np.float32)
         return obs
 
     def step(self, action: int) -> tuple[np.ndarray, float, bool, bool, dict]:
@@ -204,10 +216,14 @@ class AutoScalingEnv(gym.Env):
         # Apply action with cooldown
         if self.cooldown == 0:
             if action == 2:  # Scale up
-                self.current_capacity = min(self.current_capacity + 1, self.max_capacity)
+                self.current_capacity = min(
+                    self.current_capacity + 1, self.max_capacity
+                )
                 self.cooldown = self.cooldown_period
             elif action == 0:  # Scale down
-                self.current_capacity = max(self.current_capacity - 1, self.min_capacity)
+                self.current_capacity = max(
+                    self.current_capacity - 1, self.min_capacity
+                )
                 self.cooldown = self.cooldown_period
             # action == 1 is "hold", do nothing
         else:
@@ -217,8 +233,7 @@ class AutoScalingEnv(gym.Env):
         raw_cpu = row["avg_cpu"]
         demand_cpu = raw_cpu * self.config.demand_scale
         utilization = (
-            demand_cpu / self.current_capacity
-            if self.current_capacity > 0 else 0.0
+            demand_cpu / self.current_capacity if self.current_capacity > 0 else 0.0
         )
 
         # Cost term
@@ -251,8 +266,7 @@ class AutoScalingEnv(gym.Env):
         else:
             # Reuse the last real observation but with the *current* capacity
             self.state = np.array(
-                [row["avg_cpu"], self.current_capacity],
-                dtype=np.float32
+                [row["avg_cpu"], self.current_capacity], dtype=np.float32
             )
 
         info = {
@@ -263,13 +277,14 @@ class AutoScalingEnv(gym.Env):
                 "cost_term": cost_term,
                 "sla_term": sla_term,
                 "util_term": util_term,
-            }
+            },
         }
 
         return self.state, reward, terminated, truncated, info
 
-    def reset(self, seed: int | None = None,
-              options: dict | None = None) -> tuple[np.ndarray, dict]:
+    def reset(
+        self, seed: int | None = None, options: dict | None = None
+    ) -> tuple[np.ndarray, dict]:
         """
         Resets the environment to its initial state.
 
@@ -293,10 +308,7 @@ class AutoScalingEnv(gym.Env):
 
     def render(self, mode: str = "human"):
         # You can add plotting or logging here if you want.
-        print(
-            f"Step: {self.current_step}, "
-            f"Capacity: {self.current_capacity}"
-        )
+        print(f"Step: {self.current_step}, Capacity: {self.current_capacity}")
 
     def close(self):
         # Clean up resources if needed

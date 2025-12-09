@@ -5,8 +5,6 @@
 ![Python 3.12](https://img.shields.io/badge/Python-3.12-black?logo=python&logoColor=blue)
 [![Coverage](https://img.shields.io/badge/coverage-35%25-yellow)](tests/)
 
-## Objective
-
 This project aims to solve for when to scale and will explore whether reinforcement learning can make smarter decisions about cloud resource auto-scaling than today's simple threshold rules.
 
 We aim to build a small simulator where cloud workloads vary over time and then have an RL agent decide when to add or remove capacity. The goal is to see if reinforcement learning methods like SARSA and Q-learning can keep performance high while avoiding unnecessary cost.
@@ -27,49 +25,6 @@ In contrast, reinforcement learning approaches offer several potential advantage
 - **Generalization**: Trained agents may adapt to new workload patterns without manual rule tuning
 
 This project investigates whether these theoretical benefits translate to measurable improvements in simulated cloud environments.
-
-## Prerequisites
-
-Before getting started with this project, ensure you have the following:
-
-### Required
-
-- **Python 3.12 or higher**: The project is built and tested with Python 3.12
-- **uv package manager**: Fast Python package installer and resolver ([installation instructions](#getting-started-with-uv))
-- **Git**: For version control and repository management
-
-### Optional
-
-- **Make**: For using the provided Makefile commands (available by default on macOS/Linux)
-- **Jupyter**: For running interactive notebooks (installed automatically with dependencies)
-- **Homebrew** (macOS): Simplifies installation of uv and other tools
-
-### System Requirements
-
-- Operating System: macOS, Linux, or Windows (with WSL recommended)
-- RAM: At least 4GB recommended for running experiments
-- Disk Space: ~500MB for dependencies and datasets
-
-## Plan
-
-We plan to explore the use of both simulated and real-world datasets to
-drive the cloud auto-scaling environment. This approach lets us
-prototype quickly with lightweight data while leaving open the
-possibility of testing against more realistic traces.
-
-## Tentative Schedule
-
-| Task Description                                                                 | Target Date   |
-|----------------------------------------------------------------------------------|---------------|
-| Begin exploring the Kaggle dataset, normalize CPU utilization, and experiment with simple demand traces | October 11    |
-| Build an initial version of the simulator (states, actions, rewards) and test different ways of including the trend feature | October 18    |
-| Try out simple baseline policies; compare how well they track demand; refine reward design if needed | October 25    |
-| Start implementing RL agents (SARSA, Q-learning); experiment with different exploration rates and episode lengths | November 1    |
-| Run initial experiments with RL policies; evaluate early results and adjust simulator design or state representation as needed | November 8    |
-| Explore feasibility of incorporating one of the real-world traces from the GitHub dataset collection; test integration if time permits | November 15   |
-| Continue refining experiments, focusing on SLA vs. cost trade-offs and the effect of the trend feature | November 22   |
-| Consolidate results, generate plots and visualizations, and begin drafting the report | November 29   |
-| Finalize report and prepare presentation                                          | Dec 6 - 9     |
 
 ## Data
 
@@ -98,6 +53,65 @@ possibility of testing against more realistic traces.
   - May be used to test how well the RL agent generalizes beyond
     synthetic data
 
+## Results
+
+📖 **[Model Architectures & Metrics Documentation](docs/model_architectures.md)** — Detailed descriptions of all algorithms, neural network architectures, and evaluation metrics.
+
+Our experiments compare Deep RL agents (DQN, Double DQN, Dueling DQN) trained over 2000 episodes. Click to expand each visualization:
+
+<details>
+<summary><b>🧠 Evidence of Learning</b></summary>
+
+![Learning Evidence](docs/final_plots/learning_evidence.png)
+
+**Key Metrics Demonstrating Learning:**
+
+| Algorithm | Reward Improvement | Variance Reduction | Trend Slope |
+|-----------|-------------------|-------------------|-------------|
+| DQN | +99.2% | -81.2% | +5.6/episode |
+| Double DQN | +101.1% | -85.7% | +5.9/episode |
+| Dueling DQN | +104.3% | -81.1% | +5.7/episode |
+
+*All agents show: (A) consistent reward improvement across training phases, (B) increasing cumulative rewards, (C) upward trending smoothed learning curves, and (D) decreasing variance indicating policy stabilization.*
+
+</details>
+
+<details>
+<summary><b>📈 Learning Curves</b></summary>
+
+![Learning Curves](docs/final_plots/learning_curves_20251203_120832.png)
+
+*Learning curves with 95% confidence intervals showing episode rewards over 2000 training episodes for each algorithm.*
+
+</details>
+
+<details>
+<summary><b>📊 Algorithm Comparison</b></summary>
+
+![Algorithm Comparison](docs/final_plots/algorithm_comparison_20251203_120832.png)
+
+*Bar chart comparing mean rewards across algorithms with improvement percentages relative to baseline.*
+
+</details>
+
+<details>
+<summary><b>🔍 Convergence Analysis</b></summary>
+
+![Convergence Analysis](docs/final_plots/convergence_analysis_20251203_120832.png)
+
+*Multi-panel analysis showing cumulative rewards, convergence rate, improvement velocity, and rolling variance.*
+
+</details>
+
+<details>
+<summary><b>📋 Summary Dashboard</b></summary>
+
+![Summary Dashboard](docs/final_plots/summary_dashboard_20251203_120832.png)
+
+*Comprehensive dashboard with learning curves, final performance comparison, stability metrics, and reward distributions.*
+
+</details>
+
 ## Getting Started with uv
 
 ### Quick Start
@@ -120,7 +134,7 @@ If you prefer to set up manually or don't have Make installed:
 # Install uv (macOS/Linux with Homebrew)
 brew install uv
 
-# Or install with curl
+# Or just install directly
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
 # Create virtual environment with Python 3.12
@@ -140,17 +154,22 @@ source .venv/bin/activate  # On macOS/Linux
 The project includes a Makefile with convenient commands for common tasks:
 
 ```bash
-make help              # Show all available commands
-make setup             # Install uv and set up environment
-make sync              # Sync dependencies
-make format            # Format code with ruff
-make lint              # Lint code with ruff
-make lint-fix          # Lint and auto-fix issues
-make clean             # Remove virtual environment and cache files
-make run-experiments   # Run main experiments
-make jupyter           # Start Jupyter notebook server
-make pre-commit-install # Install pre-commit hooks
-make pre-commit-run    # Run pre-commit hooks on all files
+Cloud Autoscaling RL - Available Commands
+===========================================
+  help                 Show available commands
+  setup                Install uv and set up Python environment
+  sync                 Sync dependencies
+  test                 Run all tests
+  lint                 Check code style
+  format               Format and fix code
+  train                Run deep RL training (2000 episodes)
+  quick                Quick test run (~2 min)
+  optimize             Run Optuna Bayesian optimization (50 trials) WIP
+  optimize-quick       Quick optimization test (10 trials) WIP
+  clean                Remove cache files
+  clean-artifacts      Remove generated artifacts
+  summary              Show experiment summary
+  jupyter              Start Jupyter notebook
 ```
 
 ## Development Workflow
@@ -185,41 +204,22 @@ make pre-commit-run
 uv run pre-commit run --all-files
 ```
 
-### Branch Protection Rules
-
-To maintain code quality and collaboration standards, we recommend the following branch protection rules for the `main` branch:
-
-#### Required Settings
-
-- **Require pull request reviews before merging**: At least 1 approval required
-- **Require status checks to pass before merging**:
-  - Ruff linting checks
-  - Pre-commit hook validation
-- **Require branches to be up to date before merging**: Ensures changes are tested against latest code
-- **Require conversation resolution before merging**: All review comments must be addressed
-
-#### Recommended Settings
-
-- **Dismiss stale pull request approvals when new commits are pushed**: Ensures reviews reflect current state
-- **Restrict who can push to matching branches**: Limit to maintainers only
-- **Allow force pushes**: Disabled
-- **Allow deletions**: Disabled
-
-These rules help ensure:
-
-- Code is reviewed before integration
-- Automated checks pass consistently
-- The main branch remains stable
-- All team members follow consistent practices
 
 ## Important Links
 
+### Project Specific
+
 - [online power point presentation](https://docs.google.com/presentation/d/1JsF84O8dYrtZroLkL320MNY7MJDpCtTDYfo3DwM1zjM/edit?slide=id.p#slide=id.p)
 - [overleaf working link](https://www.overleaf.com/project/692069c4bd002e28b564dbc8)
+- [wandb logging](https://wandb.ai/healydatascience-university-of-virginia/cloud-autoscaling-rl?nw=nwuserhealydatascience)
 
+### Course Specific
 
-- The [class Canvas](https://canvas.its.virginia.edu/courses/159418/modules)
-- The class repo can be found [here](https://github.com/UVADS/reinforcement_learning_online_msds/commits/main/)
+- The [Canvas -login required](https://canvas.its.virginia.edu/courses/159418/modules)
+- The [course repo](https://github.com/UVADS/reinforcement_learning_online_msds/commits/main/)
+
+### Rivanna (UVA HPC)
+
 - **Rivanna HPC Resources** (for long-running experiments):
   - [Rivanna User Guide](https://www.rc.virginia.edu/userinfo/rivanna/overview/)
   - [Getting Started with Rivanna](https://www.rc.virginia.edu/userinfo/rivanna/login/)
@@ -232,42 +232,7 @@ These rules help ensure:
     4. Submit with: `sbatch your_script.sh`
     5. Monitor with: `squeue -u <your_id>`
 
-## Contributing
 
-We welcome contributions from the community! Here's how you can help:
-
-### How to Contribute
-
-1. **Fork the repository** and create a new branch for your feature or bugfix
-2. **Make your changes** following the code style guidelines (see below)
-3. **Test your changes** to ensure nothing breaks
-4. **Run pre-commit hooks** to validate code quality
-5. **Submit a pull request** with a clear description of your changes
-
-### Code Style Guidelines
-
-- Follow PEP 8 style guidelines for Python code
-- Use Ruff for linting and formatting (runs automatically via pre-commit)
-- Write clear, descriptive commit messages
-- Add comments for complex logic
-- Update documentation when adding new features
-
-### Reporting Issues
-
-Found a bug or have a feature request? Please open an issue on GitHub with:
-
-- A clear description of the problem or feature
-- Steps to reproduce (for bugs)
-- Expected vs. actual behavior
-- Your environment details (OS, Python version, etc.)
-
-### Development Setup
-
-1. Follow the [Getting Started](#getting-started-with-uv) guide
-2. Install pre-commit hooks: `make pre-commit-install`
-3. Create a new branch: `git checkout -b feature/your-feature-name`
-4. Make changes and commit with descriptive messages
-5. Run `make lint` and `make format` before submitting
 
 ## Contributors
 
@@ -277,16 +242,8 @@ Found a bug or have a feature request? Please open an issue on GitHub with:
 - **Healy, Ryan** - Core contributor, simulator development and data processing
 - **McGregor, Bruce** - Core contributor, baseline policies and evaluation metrics
 
-### Contributing
-
-This project is part of a graduate-level reinforcement learning course. We appreciate any feedback, suggestions, or contributions from the community. Please see the [Contributing](#contributing) section above for guidelines.
-
-## License
-
-This project is licensed under the terms specified in the LICENSE file.
-
 ## Acknowledgments
 
 - University of Virginia - Master of Science in Data Science program
-- Course instructors and TAs for guidance and support
-- Kaggle and GitHub dataset contributors for providing valuable data resources
+- Professor Adam Tashman
+

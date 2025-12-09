@@ -17,3 +17,8 @@ from .deep_rl_agents import (
     create_sb3_ppo,
     create_sb3_a2c,
 )
+from .reinforce_agent import (
+    REINFORCEAgent,
+    REINFORCEWithBaseline,
+    PolicyNetwork,
+)

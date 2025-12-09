@@ -12,15 +12,18 @@ Usage:
     python scripts/run_baselines.py                    # Run all experiments
     python scripts/run_baselines.py --quick            # Quick test run
     python scripts/run_baselines.py --algo q-learning  # Run specific algorithm
+    python scripts/run_baselines.py --no-wandb         # Disable wandb logging
 """
 
 import argparse
 import json
 import logging
+import pickle
 import sys
 from datetime import datetime
+from glob import glob
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, Optional, Tuple
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -38,46 +41,71 @@ from agent.baseline_policies import (
     RandomPolicy,
     ThresholdPolicy,
 )
+from agent.deep_rl_agents import (
+    DQNAgent,
+    DoubleDQNAgent,
+    DuelingDQNAgent,
+)
+from agent.reinforce_agent import (
+    REINFORCEAgent,
+    REINFORCEWithBaseline,
+)
+from env_configs import (
+    get_config,
+    transform_workload,
+    ENV_CONFIGS,
+    AutoScalingEnvConfig,
+)
+from wandb_utils import (
+    init_wandb,
+    log_episode,
+    log_summary,
+    finish_run,
+    load_wandb_key,
+    WANDB_AVAILABLE,
+)
+
+# Global flag for wandb logging
+USE_WANDB = True
 
 
-def setup_logging(output_dir: Path, log_level: str = "INFO") -> logging.Logger:
+def setup_logging(log_level: str = "INFO") -> logging.Logger:
     """Configure logging with both file and console handlers."""
-    # Create logs directory
-    log_dir = output_dir / "logs"
+    # Create logs directory - always use artifacts/logs
+    log_dir = PROJECT_ROOT / "artifacts" / "logs"
     log_dir.mkdir(parents=True, exist_ok=True)
-    
+
     # Create timestamp for log file
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     log_file = log_dir / f"experiment_{timestamp}.log"
-    
+
     # Create logger
     logger = logging.getLogger("run_experiments")
     logger.setLevel(getattr(logging, log_level.upper()))
     logger.handlers.clear()  # Clear any existing handlers
-    
+
     # Create formatters
     file_formatter = logging.Formatter(
         "%(asctime)s - %(name)s - %(levelname)s - %(funcName)s:%(lineno)d - %(message)s"
     )
     console_formatter = logging.Formatter(
-        "%(asctime)s - %(levelname)s - %(message)s",
-        datefmt="%H:%M:%S"
+        "%(asctime)s - %(levelname)s - %(message)s", datefmt="%H:%M:%S"
     )
-    
+
     # File handler (detailed)
     file_handler = logging.FileHandler(log_file)
     file_handler.setLevel(logging.DEBUG)
     file_handler.setFormatter(file_formatter)
     logger.addHandler(file_handler)
-    
+
     # Console handler (concise)
     console_handler = logging.StreamHandler()
     console_handler.setLevel(getattr(logging, log_level.upper()))
     console_handler.setFormatter(console_formatter)
     logger.addHandler(console_handler)
-    
+
     logger.info(f"Logging initialized. Log file: {log_file}")
-    
+
     return logger
 
 
@@ -88,47 +116,107 @@ logger = logging.getLogger("run_experiments")
 sns.set_style("whitegrid")
 plt.rcParams["figure.figsize"] = (12, 6)
 
+# Models directory
+MODELS_DIR = PROJECT_ROOT / "artifacts" / "models"
+
+# Global workload type (set in main)
+WORKLOAD_TYPE = "smooth"
+
+
+def get_model_path(algorithm: str, n_episodes: int, date: str = None, workload: str = None) -> Path:
+    """Generate model file path with algorithm, episodes, date, and optional workload type."""
+    if date is None:
+        date = datetime.now().strftime("%Y%m%d")
+    if workload and workload != "smooth":
+        return MODELS_DIR / f"{algorithm}_{workload}_{n_episodes}ep_{date}.pkl"
+    return MODELS_DIR / f"{algorithm}_{n_episodes}ep_{date}.pkl"
+
+
+def find_existing_model(algorithm: str, n_episodes: int, workload: str = None) -> Optional[Path]:
+    """Find an existing model file for the given algorithm and episode count."""
+    MODELS_DIR.mkdir(parents=True, exist_ok=True)
+    # Look for any model with matching algorithm and episodes (any date)
+    if workload and workload != "smooth":
+        pattern = str(MODELS_DIR / f"{algorithm}_{workload}_{n_episodes}ep_*.pkl")
+    else:
+        pattern = str(MODELS_DIR / f"{algorithm}_{n_episodes}ep_*.pkl")
+    matches = glob(pattern)
+    if matches:
+        # Return the most recent one
+        return Path(sorted(matches, reverse=True)[0])
+    return None
+
+
+def save_model(agent: Any, algorithm: str, n_episodes: int, metadata: Dict = None, workload: str = None) -> Path:
+    """Save a trained agent to disk."""
+    MODELS_DIR.mkdir(parents=True, exist_ok=True)
+    wl = workload or WORKLOAD_TYPE
+    model_path = get_model_path(algorithm, n_episodes, workload=wl)
+    
+    save_data = {
+        "agent": agent,
+        "algorithm": algorithm,
+        "n_episodes": n_episodes,
+        "workload_type": wl,
+        "saved_at": datetime.now().isoformat(),
+        "metadata": metadata or {},
+    }
+    
+    with open(model_path, "wb") as f:
+        pickle.dump(save_data, f)
+    
+    logger.info(f"Model saved to {model_path}")
+    return model_path
+
+
+def load_model(model_path: Path) -> Tuple[Any, Dict]:
+    """Load a trained agent from disk."""
+    with open(model_path, "rb") as f:
+        save_data = pickle.load(f)
+    
+    logger.info(f"Model loaded from {model_path}")
+    return save_data["agent"], save_data
+
 
 def generate_workload(length: int = 1000, seed: int = 42) -> np.ndarray:
     """Generate synthetic cloud workload with realistic patterns."""
     np.random.seed(seed)
     t = np.linspace(0, 4 * np.pi, length)
-    
+
     # Combine multiple patterns
     daily_pattern = 50 + 30 * np.sin(t)
     weekly_pattern = 10 * np.sin(t / 7)
     noise = np.random.normal(0, 5, length)
     spikes = np.random.choice([0, 20], size=length, p=[0.95, 0.05])
-    
+
     workload = daily_pattern + weekly_pattern + noise + spikes
     workload = np.clip(workload, 10, 100)
-    
+
     return workload
 
 
 def run_baseline_policies(
-    env: CloudAutoscalingEnv,
-    n_episodes: int = 100
+    env: CloudAutoscalingEnv, n_episodes: int = 100
 ) -> Dict[str, Any]:
     """Run baseline policies and collect metrics."""
     logger.info("=" * 50)
     logger.info("Running baseline policies...")
     logger.info(f"Number of episodes: {n_episodes}")
-    
+
     results = {}
-    
+
     # Random policy
     logger.debug("Initializing Random policy")
     random_policy = RandomPolicy(seed=42)
     random_rewards = []
     random_sla = []
-    
+
     for ep in tqdm(range(n_episodes), desc="Random Policy", leave=False):
         state, info = env.reset()
         total_reward = 0
         sla_violations = 0
         done = False
-        
+
         while not done:
             action = random_policy.select_action(state)
             next_state, reward, terminated, truncated, info = env.step(action)
@@ -136,29 +224,31 @@ def run_baseline_policies(
             sla_violations += info.get("sla_violation", 0)
             state = next_state
             done = terminated or truncated
-        
+
         random_rewards.append(total_reward)
         random_sla.append(sla_violations)
-    
+
     results["random"] = {
         "mean_reward": np.mean(random_rewards),
         "std_reward": np.std(random_rewards),
         "mean_sla_violations": np.mean(random_sla),
     }
-    logger.info(f"Random Policy completed: reward={results['random']['mean_reward']:.2f} ± {results['random']['std_reward']:.2f}")
-    
+    logger.info(
+        f"Random Policy completed: reward={results['random']['mean_reward']:.2f} ± {results['random']['std_reward']:.2f}"
+    )
+
     # Threshold policy
     logger.debug("Initializing Threshold policy")
     threshold_policy = ThresholdPolicy()
     threshold_rewards = []
     threshold_sla = []
-    
+
     for ep in tqdm(range(n_episodes), desc="Threshold Policy", leave=False):
         state, info = env.reset()
         total_reward = 0
         sla_violations = 0
         done = False
-        
+
         while not done:
             action = threshold_policy.select_action(state)
             next_state, reward, terminated, truncated, info = env.step(action)
@@ -166,19 +256,21 @@ def run_baseline_policies(
             sla_violations += info.get("sla_violation", 0)
             state = next_state
             done = terminated or truncated
-        
+
         threshold_rewards.append(total_reward)
         threshold_sla.append(sla_violations)
-    
+
     results["threshold"] = {
         "mean_reward": np.mean(threshold_rewards),
         "std_reward": np.std(threshold_rewards),
         "mean_sla_violations": np.mean(threshold_sla),
     }
-    
-    logger.info(f"Threshold Policy completed: reward={results['threshold']['mean_reward']:.2f} ± {results['threshold']['std_reward']:.2f}")
+
+    logger.info(
+        f"Threshold Policy completed: reward={results['threshold']['mean_reward']:.2f} ± {results['threshold']['std_reward']:.2f}"
+    )
     logger.info("Baseline policies evaluation complete")
-    
+
     return results
 
 
@@ -189,9 +281,29 @@ def train_q_learning_agent(
     discount_factor: float = 0.95,
     epsilon: float = 1.0,
     epsilon_decay: float = 0.995,
-    seed: int = 42
+    seed: int = 42,
+    skip_if_exists: bool = True,
 ) -> Dict[str, Any]:
     """Train Q-Learning agent and return metrics."""
+    global USE_WANDB
+
+    # Check for existing model
+    existing_model = find_existing_model("q_learning", n_episodes, workload=WORKLOAD_TYPE)
+    if skip_if_exists and existing_model:
+        logger.info("=" * 50)
+        logger.info(f"Found existing Q-Learning model: {existing_model}")
+        logger.info("Skipping training (use --force to retrain)")
+        agent, save_data = load_model(existing_model)
+        return {
+            "agent": agent,
+            "episode_rewards": save_data["metadata"].get("episode_rewards", []),
+            "episode_sla": save_data["metadata"].get("episode_sla", []),
+            "final_epsilon": save_data["metadata"].get("final_epsilon", 0.01),
+            "mean_reward": save_data["metadata"].get("mean_reward", 0),
+            "mean_sla": save_data["metadata"].get("mean_sla", 0),
+            "loaded_from": str(existing_model),
+        }
+
     logger.info("=" * 50)
     logger.info("Training Q-Learning Agent")
     logger.info(f"  Episodes: {n_episodes}")
@@ -200,7 +312,24 @@ def train_q_learning_agent(
     logger.info(f"  Initial epsilon: {epsilon}")
     logger.info(f"  Epsilon decay: {epsilon_decay}")
     logger.info(f"  Seed: {seed}")
-    
+
+    # Initialize wandb run
+    if USE_WANDB and WANDB_AVAILABLE:
+        init_wandb(
+            name=f"q-learning-lr{learning_rate}-g{discount_factor}",
+            config={
+                "algorithm": "q-learning",
+                "n_episodes": n_episodes,
+                "learning_rate": learning_rate,
+                "discount_factor": discount_factor,
+                "epsilon_decay": epsilon_decay,
+                "seed": seed,
+            },
+            tags=["tabular", "q-learning"],
+            group="q-learning",
+            job_type="train",
+        )
+
     agent = QLearningAgent(
         state_space_shape=(3, 5, 3),
         n_actions=3,
@@ -209,38 +338,69 @@ def train_q_learning_agent(
         epsilon=epsilon,
         epsilon_decay=epsilon_decay,
         epsilon_min=0.01,
-        seed=seed
+        seed=seed,
     )
-    
+
     episode_rewards = []
     episode_sla = []
-    
+
     for ep in tqdm(range(n_episodes), desc="Q-Learning", leave=False):
         state, info = env.reset()
         total_reward = 0
         sla_violations = 0
         done = False
-        
+
         while not done:
             action = agent.select_action(state)
             next_state, reward, terminated, truncated, info = env.step(action)
-            
+
             # Q-Learning update
             agent.update(state, action, reward, next_state, terminated)
-            
+
             total_reward += reward
             sla_violations += info.get("sla_violation", 0)
             state = next_state
             done = terminated or truncated
-        
+
         agent.decay_epsilon()
         episode_rewards.append(total_reward)
         episode_sla.append(sla_violations)
-    
-    final_reward = np.mean(episode_rewards[-100:]) if len(episode_rewards) >= 100 else np.mean(episode_rewards)
-    final_sla = np.mean(episode_sla[-100:]) if len(episode_sla) >= 100 else np.mean(episode_sla)
-    logger.info(f"Q-Learning training complete: final_reward={final_reward:.2f}, final_sla={final_sla:.2f}")
-    
+
+        # Log to wandb
+        if USE_WANDB and WANDB_AVAILABLE:
+            log_episode(ep, total_reward, sla_violations, agent.epsilon)
+
+    final_reward = (
+        np.mean(episode_rewards[-100:])
+        if len(episode_rewards) >= 100
+        else np.mean(episode_rewards)
+    )
+    final_sla = (
+        np.mean(episode_sla[-100:]) if len(episode_sla) >= 100 else np.mean(episode_sla)
+    )
+    logger.info(
+        f"Q-Learning training complete: final_reward={final_reward:.2f}, final_sla={final_sla:.2f}"
+    )
+
+    # Log summary and finish wandb run
+    if USE_WANDB and WANDB_AVAILABLE:
+        log_summary(final_reward, final_sla, best_reward=max(episode_rewards))
+        finish_run()
+
+    # Save the trained model
+    metadata = {
+        "episode_rewards": episode_rewards,
+        "episode_sla": episode_sla,
+        "final_epsilon": agent.epsilon,
+        "mean_reward": final_reward,
+        "mean_sla": final_sla,
+        "learning_rate": learning_rate,
+        "discount_factor": discount_factor,
+        "epsilon_decay": epsilon_decay,
+        "seed": seed,
+    }
+    save_model(agent, "q_learning", n_episodes, metadata)
+
     return {
         "agent": agent,
         "episode_rewards": episode_rewards,
@@ -258,9 +418,29 @@ def train_sarsa_agent(
     discount_factor: float = 0.95,
     epsilon: float = 1.0,
     epsilon_decay: float = 0.995,
-    seed: int = 42
+    seed: int = 42,
+    skip_if_exists: bool = True,
 ) -> Dict[str, Any]:
     """Train SARSA agent and return metrics."""
+    global USE_WANDB
+
+    # Check for existing model
+    existing_model = find_existing_model("sarsa", n_episodes, workload=WORKLOAD_TYPE)
+    if skip_if_exists and existing_model:
+        logger.info("=" * 50)
+        logger.info(f"Found existing SARSA model: {existing_model}")
+        logger.info("Skipping training (use --force to retrain)")
+        agent, save_data = load_model(existing_model)
+        return {
+            "agent": agent,
+            "episode_rewards": save_data["metadata"].get("episode_rewards", []),
+            "episode_sla": save_data["metadata"].get("episode_sla", []),
+            "final_epsilon": save_data["metadata"].get("final_epsilon", 0.01),
+            "mean_reward": save_data["metadata"].get("mean_reward", 0),
+            "mean_sla": save_data["metadata"].get("mean_sla", 0),
+            "loaded_from": str(existing_model),
+        }
+
     logger.info("=" * 50)
     logger.info("Training SARSA Agent")
     logger.info(f"  Episodes: {n_episodes}")
@@ -269,7 +449,24 @@ def train_sarsa_agent(
     logger.info(f"  Initial epsilon: {epsilon}")
     logger.info(f"  Epsilon decay: {epsilon_decay}")
     logger.info(f"  Seed: {seed}")
-    
+
+    # Initialize wandb run
+    if USE_WANDB and WANDB_AVAILABLE:
+        init_wandb(
+            name=f"sarsa-lr{learning_rate}-g{discount_factor}",
+            config={
+                "algorithm": "sarsa",
+                "n_episodes": n_episodes,
+                "learning_rate": learning_rate,
+                "discount_factor": discount_factor,
+                "epsilon_decay": epsilon_decay,
+                "seed": seed,
+            },
+            tags=["tabular", "sarsa"],
+            group="sarsa",
+            job_type="train",
+        )
+
     agent = SARSAAgent(
         state_space_shape=(3, 5, 3),
         n_actions=3,
@@ -278,12 +475,12 @@ def train_sarsa_agent(
         epsilon=epsilon,
         epsilon_decay=epsilon_decay,
         epsilon_min=0.01,
-        seed=seed
+        seed=seed,
     )
-    
+
     episode_rewards = []
     episode_sla = []
-    
+
     with tqdm(range(n_episodes), desc="SARSA Training", leave=False) as pbar:
         for ep in pbar:
             state, info = env.reset()
@@ -291,34 +488,65 @@ def train_sarsa_agent(
             total_reward = 0
             sla_violations = 0
             done = False
-            
+
             while not done:
                 next_state, reward, terminated, truncated, info = env.step(action)
                 next_action = agent.select_action(next_state)
-                
+
                 # SARSA update (on-policy)
                 agent.update(state, action, reward, next_state, next_action, terminated)
-                
+
                 total_reward += reward
                 sla_violations += info.get("sla_violation", 0)
                 state = next_state
                 action = next_action
                 done = terminated or truncated
-            
+
             agent.decay_epsilon()
             episode_rewards.append(total_reward)
             episode_sla.append(sla_violations)
-            
+
+            # Log to wandb
+            if USE_WANDB and WANDB_AVAILABLE:
+                log_episode(ep, total_reward, sla_violations, agent.epsilon)
+
             if (ep + 1) % 100 == 0:
                 avg_reward = np.mean(episode_rewards[-100:])
                 avg_sla = np.mean(episode_sla[-100:])
-                pbar.set_postfix(avg_reward=f"{avg_reward:.2f}", avg_sla=f"{avg_sla:.2f}", eps=f"{agent.epsilon:.3f}")
-                logger.info(f"  Episode {ep+1}/{n_episodes}: avg_reward={avg_reward:.2f}, avg_sla={avg_sla:.2f}, eps={agent.epsilon:.3f}")
-    
+                pbar.set_postfix(
+                    avg_reward=f"{avg_reward:.2f}",
+                    avg_sla=f"{avg_sla:.2f}",
+                    eps=f"{agent.epsilon:.3f}",
+                )
+                logger.info(
+                    f"  Episode {ep + 1}/{n_episodes}: avg_reward={avg_reward:.2f}, avg_sla={avg_sla:.2f}, eps={agent.epsilon:.3f}"
+                )
+
     final_reward = np.mean(episode_rewards[-100:])
     final_sla = np.mean(episode_sla[-100:])
-    logger.info(f"SARSA training complete: final_reward={final_reward:.2f}, final_sla={final_sla:.2f}")
-    
+    logger.info(
+        f"SARSA training complete: final_reward={final_reward:.2f}, final_sla={final_sla:.2f}"
+    )
+
+    # Log summary and finish wandb run
+    if USE_WANDB and WANDB_AVAILABLE:
+        log_summary(final_reward, final_sla, best_reward=max(episode_rewards))
+        finish_run()
+
+    # Save the trained model
+    metadata = {
+        "episode_rewards": episode_rewards,
+        "episode_sla": episode_sla,
+        "final_epsilon": agent.epsilon,
+        "mean_reward": final_reward,
+        "mean_sla": final_sla,
+        "learning_rate": learning_rate,
+        "discount_factor": discount_factor,
+        "epsilon_decay": epsilon_decay,
+        "seed": seed,
+    }
+    save_model(agent, "sarsa", n_episodes, metadata)
+
     return {
         "agent": agent,
         "episode_rewards": episode_rewards,
@@ -330,24 +558,22 @@ def train_sarsa_agent(
 
 
 def run_hyperparameter_sweep(
-    env: CloudAutoscalingEnv,
-    algorithm: str = "q-learning",
-    n_episodes: int = 500
+    env: CloudAutoscalingEnv, algorithm: str = "q-learning", n_episodes: int = 500
 ) -> Dict[str, Any]:
     """Run hyperparameter sweep for given algorithm."""
     logger.info("=" * 50)
     logger.info(f"Running hyperparameter sweep for {algorithm}")
     logger.info(f"Episodes per configuration: {n_episodes}")
-    
+
     learning_rates = [0.01, 0.1, 0.3]
     discount_factors = [0.9, 0.95, 0.99]
     logger.info(f"Learning rates: {learning_rates}")
     logger.info(f"Discount factors: {discount_factors}")
-    
+
     results = {}
     total_configs = len(learning_rates) * len(discount_factors)
     config_num = 0
-    
+
     with tqdm(total=total_configs, desc="Hyperparameter Sweep", leave=False) as pbar:
         for lr in learning_rates:
             for gamma in discount_factors:
@@ -355,201 +581,727 @@ def run_hyperparameter_sweep(
                 config_name = f"lr={lr}_gamma={gamma}"
                 pbar.set_description(f"Sweep: {config_name}")
                 logger.info(f"  [{config_num}/{total_configs}] Config: {config_name}")
-                
+
                 if algorithm == "q-learning":
                     metrics = train_q_learning_agent(
-                        env, n_episodes=n_episodes,
-                        learning_rate=lr, discount_factor=gamma
+                        env,
+                        n_episodes=n_episodes,
+                        learning_rate=lr,
+                        discount_factor=gamma,
                     )
                 else:
                     metrics = train_sarsa_agent(
-                        env, n_episodes=n_episodes,
-                        learning_rate=lr, discount_factor=gamma
+                        env,
+                        n_episodes=n_episodes,
+                        learning_rate=lr,
+                        discount_factor=gamma,
                     )
-                
+
                 results[config_name] = {
                     "learning_rate": lr,
                     "discount_factor": gamma,
                     "mean_reward": metrics["mean_reward"],
                     "mean_sla": metrics["mean_sla"],
                 }
-                logger.debug(f"    Result: reward={metrics['mean_reward']:.2f}, sla={metrics['mean_sla']:.2f}")
+                logger.debug(
+                    f"    Result: reward={metrics['mean_reward']:.2f}, sla={metrics['mean_sla']:.2f}"
+                )
                 pbar.update(1)
-    
+
     # Find best configuration
     best_config = max(results.items(), key=lambda x: x[1]["mean_reward"])
-    logger.info(f"Best configuration: {best_config[0]} (reward={best_config[1]['mean_reward']:.2f})")
-    
+    logger.info(
+        f"Best configuration: {best_config[0]} (reward={best_config[1]['mean_reward']:.2f})"
+    )
+
     return results
 
 
-def save_results(results: Dict[str, Any], output_dir: Path) -> None:
+def train_dqn_agent(
+    env: CloudAutoscalingEnv,
+    n_episodes: int = 1000,
+    agent_type: str = "dqn",
+    learning_rate: float = 1e-3,
+    discount_factor: float = 0.99,
+    epsilon: float = 1.0,
+    epsilon_decay: float = 0.995,
+    seed: int = 42,
+    skip_if_exists: bool = True,
+) -> Dict[str, Any]:
+    """Train DQN-based agent and return metrics."""
+    global USE_WANDB
+
+    # Check for existing model
+    existing_model = find_existing_model(agent_type, n_episodes, workload=WORKLOAD_TYPE)
+    if skip_if_exists and existing_model:
+        logger.info("=" * 50)
+        logger.info(f"Found existing {agent_type.upper()} model: {existing_model}")
+        logger.info("Skipping training (use --force to retrain)")
+        agent, save_data = load_model(existing_model)
+        return {
+            "agent": agent,
+            "episode_rewards": save_data["metadata"].get("episode_rewards", []),
+            "episode_sla": save_data["metadata"].get("episode_sla", []),
+            "final_epsilon": save_data["metadata"].get("final_epsilon", 0.01),
+            "mean_reward": save_data["metadata"].get("mean_reward", 0),
+            "mean_sla": save_data["metadata"].get("mean_sla", 0),
+            "loaded_from": str(existing_model),
+        }
+
+    logger.info("=" * 50)
+    logger.info(f"Training {agent_type.upper()} Agent")
+    logger.info(f"  Episodes: {n_episodes}")
+    logger.info(f"  Learning rate: {learning_rate}")
+    logger.info(f"  Discount factor: {discount_factor}")
+    logger.info(f"  Initial epsilon: {epsilon}")
+    logger.info(f"  Epsilon decay: {epsilon_decay}")
+    logger.info(f"  Seed: {seed}")
+
+    # Initialize wandb run
+    if USE_WANDB and WANDB_AVAILABLE:
+        init_wandb(
+            name=f"{agent_type}-lr{learning_rate:.0e}",
+            config={
+                "algorithm": agent_type,
+                "n_episodes": n_episodes,
+                "learning_rate": learning_rate,
+                "discount_factor": discount_factor,
+                "epsilon_decay": epsilon_decay,
+                "seed": seed,
+            },
+            tags=["deep-rl", agent_type],
+            group="deep-rl",
+            job_type="train",
+        )
+
+    # Get state dimension (number of elements in observation vector)
+    state_dim = len(env.observation_space.nvec)
+    action_dim = env.action_space.n
+
+    # Create appropriate agent
+    agent_classes = {
+        "dqn": DQNAgent,
+        "double_dqn": DoubleDQNAgent,
+        "dueling_dqn": DuelingDQNAgent,
+    }
+
+    AgentClass = agent_classes.get(agent_type, DQNAgent)
+
+    agent = AgentClass(
+        state_dim=state_dim,
+        action_dim=action_dim,
+        hidden_dims=(128, 128),
+        learning_rate=learning_rate,
+        discount_factor=discount_factor,
+        epsilon=epsilon,
+        epsilon_decay=epsilon_decay,
+        epsilon_min=0.01,
+        batch_size=64,
+        buffer_size=10000,
+        target_update_freq=100,
+        seed=seed,
+    )
+
+    episode_rewards = []
+    episode_sla = []
+
+    for ep in tqdm(range(n_episodes), desc=f"{agent_type.upper()}", leave=False):
+        state, info = env.reset()
+        # Flatten state for neural network
+        state_flat = state.astype(np.float32).flatten()
+        total_reward = 0
+        sla_violations = 0
+        done = False
+        losses = []
+
+        while not done:
+            action = agent.select_action(state_flat)
+            next_state, reward, terminated, truncated, info = env.step(action)
+            next_state_flat = next_state.astype(np.float32).flatten()
+
+            # DQN update
+            loss = agent.update(state_flat, action, reward, next_state_flat, terminated)
+            if loss is not None:
+                losses.append(loss)
+
+            total_reward += reward
+            sla_violations += info.get("sla_violation", 0)
+            state_flat = next_state_flat
+            done = terminated or truncated
+
+        agent.decay_epsilon()
+        episode_rewards.append(total_reward)
+        episode_sla.append(sla_violations)
+
+        # Log to wandb
+        if USE_WANDB and WANDB_AVAILABLE:
+            log_episode(
+                ep,
+                total_reward,
+                sla_violations,
+                agent.epsilon,
+                loss=np.mean(losses) if losses else None,
+            )
+
+        if (ep + 1) % 100 == 0:
+            avg_reward = np.mean(episode_rewards[-100:])
+            avg_sla = np.mean(episode_sla[-100:])
+            logger.info(
+                f"  Episode {ep + 1}/{n_episodes}: avg_reward={avg_reward:.2f}, avg_sla={avg_sla:.2f}, eps={agent.epsilon:.3f}"
+            )
+
+    final_reward = (
+        np.mean(episode_rewards[-100:])
+        if len(episode_rewards) >= 100
+        else np.mean(episode_rewards)
+    )
+    final_sla = (
+        np.mean(episode_sla[-100:]) if len(episode_sla) >= 100 else np.mean(episode_sla)
+    )
+    logger.info(
+        f"{agent_type.upper()} training complete: final_reward={final_reward:.2f}, final_sla={final_sla:.2f}"
+    )
+
+    # Log summary and finish wandb run
+    if USE_WANDB and WANDB_AVAILABLE:
+        log_summary(final_reward, final_sla, best_reward=max(episode_rewards))
+        finish_run()
+
+    # Save the trained model
+    metadata = {
+        "episode_rewards": episode_rewards,
+        "episode_sla": episode_sla,
+        "final_epsilon": agent.epsilon,
+        "mean_reward": final_reward,
+        "mean_sla": final_sla,
+        "learning_rate": learning_rate,
+        "discount_factor": discount_factor,
+        "epsilon_decay": epsilon_decay,
+        "seed": seed,
+    }
+    save_model(agent, agent_type, n_episodes, metadata)
+
+    return {
+        "agent": agent,
+        "episode_rewards": episode_rewards,
+        "episode_sla": episode_sla,
+        "final_epsilon": agent.epsilon,
+        "mean_reward": final_reward,
+        "mean_sla": final_sla,
+    }
+
+
+def train_reinforce_agent(
+    env: CloudAutoscalingEnv,
+    n_episodes: int = 1000,
+    agent_type: str = "reinforce",
+    learning_rate: float = 1e-3,
+    discount_factor: float = 0.99,
+    seed: int = 42,
+    skip_if_exists: bool = True,
+    use_baseline: bool = True,
+) -> Dict[str, Any]:
+    """
+    Train REINFORCE (Policy Gradient) agent and return metrics.
+    
+    REINFORCE is a Monte Carlo policy gradient method that learns
+    a stochastic policy directly, unlike DQN which learns Q-values.
+    
+    Args:
+        env: The environment to train on
+        n_episodes: Number of training episodes
+        agent_type: 'reinforce' or 'reinforce_baseline'
+        learning_rate: Learning rate for policy network
+        discount_factor: Gamma for discounting future rewards
+        seed: Random seed
+        skip_if_exists: Skip training if model exists
+        use_baseline: Whether to use baseline for variance reduction
+    
+    Returns:
+        Dictionary with training results
+    """
+    global USE_WANDB
+
+    # Check for existing model
+    existing_model = find_existing_model(agent_type, n_episodes, workload=WORKLOAD_TYPE)
+    if skip_if_exists and existing_model:
+        logger.info("=" * 50)
+        logger.info(f"Found existing {agent_type.upper()} model: {existing_model}")
+        logger.info("Skipping training (use --force to retrain)")
+        agent, save_data = load_model(existing_model)
+        return {
+            "agent": agent,
+            "episode_rewards": save_data["metadata"].get("episode_rewards", []),
+            "episode_sla": save_data["metadata"].get("episode_sla", []),
+            "mean_reward": save_data["metadata"].get("mean_reward", 0),
+            "mean_sla": save_data["metadata"].get("mean_sla", 0),
+            "loaded_from": str(existing_model),
+        }
+
+    logger.info("=" * 50)
+    logger.info(f"Training {agent_type.upper()} Agent (Policy Gradient)")
+    logger.info(f"  Episodes: {n_episodes}")
+    logger.info(f"  Learning rate: {learning_rate}")
+    logger.info(f"  Discount factor: {discount_factor}")
+    logger.info(f"  Use baseline: {use_baseline}")
+
+    # Initialize wandb run
+    if USE_WANDB and WANDB_AVAILABLE:
+        init_wandb(
+            name=f"{agent_type}-lr{learning_rate:.0e}",
+            config={
+                "algorithm": agent_type,
+                "n_episodes": n_episodes,
+                "learning_rate": learning_rate,
+                "discount_factor": discount_factor,
+                "use_baseline": use_baseline,
+                "seed": seed,
+            },
+            tags=["policy-gradient", agent_type],
+            group="policy-gradient",
+            job_type="train",
+        )
+
+    # Get state dimension
+    state_dim = len(env.observation_space.nvec)
+    action_dim = env.action_space.n
+
+    # Create REINFORCE agent
+    if agent_type == "reinforce_baseline" or use_baseline:
+        agent = REINFORCEWithBaseline(
+            state_dim=state_dim,
+            action_dim=action_dim,
+            learning_rate=learning_rate,
+            gamma=discount_factor,
+            hidden_dim=128,
+        )
+    else:
+        agent = REINFORCEAgent(
+            state_dim=state_dim,
+            action_dim=action_dim,
+            learning_rate=learning_rate,
+            gamma=discount_factor,
+            hidden_dim=128,
+            use_baseline=False,
+        )
+
+    episode_rewards = []
+    episode_sla = []
+    episode_losses = []
+
+    for ep in tqdm(range(n_episodes), desc=f"{agent_type.upper()}", leave=False):
+        state, info = env.reset()
+        state_flat = state.astype(np.float32).flatten()
+        total_reward = 0
+        sla_violations = 0
+        done = False
+
+        while not done:
+            # Select action from policy
+            action = agent.select_action(state_flat, training=True)
+            next_state, reward, terminated, truncated, info = env.step(action)
+            next_state_flat = next_state.astype(np.float32).flatten()
+
+            # Store reward for REINFORCE update
+            agent.store_reward(reward)
+
+            total_reward += reward
+            sla_violations += info.get("sla_violation", 0)
+            state_flat = next_state_flat
+            done = terminated or truncated
+
+        # Update policy at end of episode (Monte Carlo)
+        loss = agent.update()
+        
+        episode_rewards.append(total_reward)
+        episode_sla.append(sla_violations)
+        episode_losses.append(loss)
+
+        # Log to wandb
+        if USE_WANDB and WANDB_AVAILABLE:
+            log_episode(
+                ep,
+                total_reward,
+                sla_violations,
+                epsilon=0.0,  # REINFORCE doesn't use epsilon
+                loss=loss,
+            )
+
+        if (ep + 1) % 100 == 0:
+            avg_reward = np.mean(episode_rewards[-100:])
+            avg_sla = np.mean(episode_sla[-100:])
+            avg_loss = np.mean(episode_losses[-100:])
+            logger.info(
+                f"  Episode {ep + 1}/{n_episodes}: avg_reward={avg_reward:.2f}, "
+                f"avg_sla={avg_sla:.2f}, avg_loss={avg_loss:.2f}"
+            )
+
+    final_reward = (
+        np.mean(episode_rewards[-100:])
+        if len(episode_rewards) >= 100
+        else np.mean(episode_rewards)
+    )
+    final_sla = (
+        np.mean(episode_sla[-100:]) if len(episode_sla) >= 100 else np.mean(episode_sla)
+    )
+    logger.info(
+        f"{agent_type.upper()} training complete: final_reward={final_reward:.2f}, final_sla={final_sla:.2f}"
+    )
+
+    # Log summary and finish wandb run
+    if USE_WANDB and WANDB_AVAILABLE:
+        log_summary(final_reward, final_sla, best_reward=max(episode_rewards))
+        finish_run()
+
+    # Save the trained model
+    metadata = {
+        "episode_rewards": episode_rewards,
+        "episode_sla": episode_sla,
+        "episode_losses": episode_losses,
+        "mean_reward": final_reward,
+        "mean_sla": final_sla,
+        "learning_rate": learning_rate,
+        "discount_factor": discount_factor,
+        "use_baseline": use_baseline,
+        "seed": seed,
+    }
+    save_model(agent, agent_type, n_episodes, metadata)
+
+    return {
+        "agent": agent,
+        "episode_rewards": episode_rewards,
+        "episode_sla": episode_sla,
+        "mean_reward": final_reward,
+        "mean_sla": final_sla,
+    }
+
+
+def save_results(results: Dict[str, Any], results_dir: Path, plots_dir: Path) -> None:
     """Save experiment results to JSON and plots."""
     logger.info("=" * 50)
     logger.info("Saving experiment results")
-    output_dir.mkdir(parents=True, exist_ok=True)
-    
+    results_dir.mkdir(parents=True, exist_ok=True)
+    plots_dir.mkdir(parents=True, exist_ok=True)
+
     # Save JSON results (excluding non-serializable objects)
     json_results = {}
     for key, value in results.items():
         if isinstance(value, dict):
             json_results[key] = {
-                k: v for k, v in value.items()
+                k: v
+                for k, v in value.items()
                 if not hasattr(v, "__dict__")  # Skip agent objects
             }
         else:
             json_results[key] = value
-    
+
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    json_path = output_dir / f"results_{timestamp}.json"
-    
+    json_path = results_dir / f"results_{timestamp}.json"
+
     with open(json_path, "w") as f:
         json.dump(json_results, f, indent=2, default=str)
-    
+
     logger.info(f"JSON results saved to {json_path}")
-    
+
     # Create comparison plot
     if "q_learning" in results and "sarsa" in results:
         fig, axes = plt.subplots(1, 2, figsize=(14, 5))
-        
+
         # Rewards plot
         ax = axes[0]
         q_rewards = results["q_learning"].get("episode_rewards", [])
         sarsa_rewards = results["sarsa"].get("episode_rewards", [])
-        
+
         if q_rewards:
             window = min(50, len(q_rewards) // 10)
-            q_smooth = np.convolve(q_rewards, np.ones(window)/window, mode='valid')
+            q_smooth = np.convolve(q_rewards, np.ones(window) / window, mode="valid")
             ax.plot(q_smooth, label="Q-Learning", alpha=0.8)
-        
+
         if sarsa_rewards:
             window = min(50, len(sarsa_rewards) // 10)
-            sarsa_smooth = np.convolve(sarsa_rewards, np.ones(window)/window, mode='valid')
+            sarsa_smooth = np.convolve(
+                sarsa_rewards, np.ones(window) / window, mode="valid"
+            )
             ax.plot(sarsa_smooth, label="SARSA", alpha=0.8)
-        
+
         ax.set_xlabel("Episode")
         ax.set_ylabel("Reward (Moving Avg)")
         ax.set_title("Training Rewards")
         ax.legend()
         ax.grid(True, alpha=0.3)
-        
+
         # Comparison bar chart
         ax = axes[1]
         algorithms = []
         rewards = []
-        
+
         if "baselines" in results:
             for name, data in results["baselines"].items():
                 algorithms.append(name.capitalize())
                 rewards.append(data["mean_reward"])
-        
+
         if "q_learning" in results:
             algorithms.append("Q-Learning")
             rewards.append(results["q_learning"]["mean_reward"])
-        
+
         if "sarsa" in results:
             algorithms.append("SARSA")
             rewards.append(results["sarsa"]["mean_reward"])
-        
+
+        # Add deep RL results
+        for agent_type in ["dqn", "double_dqn", "dueling_dqn"]:
+            if agent_type in results:
+                algorithms.append(agent_type.upper().replace("_", " "))
+                rewards.append(results[agent_type]["mean_reward"])
+
         colors = plt.cm.viridis(np.linspace(0.2, 0.8, len(algorithms)))
         ax.bar(algorithms, rewards, color=colors)
         ax.set_ylabel("Mean Reward")
         ax.set_title("Algorithm Comparison")
-        ax.grid(True, alpha=0.3, axis='y')
-        
+        ax.grid(True, alpha=0.3, axis="y")
+
         plt.tight_layout()
-        plot_path = output_dir / f"comparison_{timestamp}.png"
+        plot_path = plots_dir / f"comparison_{timestamp}.png"
         plt.savefig(plot_path, dpi=150)
         logger.info(f"Plot saved to {plot_path}")
         plt.close()
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Run RL experiments for cloud autoscaling")
-    parser.add_argument("--quick", action="store_true", help="Quick test run with fewer episodes")
-    parser.add_argument("--algo", choices=["all", "q-learning", "sarsa", "baselines"],
-                        default="all", help="Algorithm to run")
-    parser.add_argument("--episodes", type=int, default=1000, help="Number of training episodes")
+    global USE_WANDB
+
+    parser = argparse.ArgumentParser(
+        description="Run RL experiments for cloud autoscaling"
+    )
+    parser.add_argument(
+        "--quick", action="store_true", help="Quick test run with fewer episodes"
+    )
+    parser.add_argument(
+        "--algo",
+        choices=[
+            "all",
+            "tabular",
+            "deep",
+            "q-learning",
+            "sarsa",
+            "dqn",
+            "double-dqn",
+            "dueling-dqn",
+            "reinforce",
+            "baselines",
+        ],
+        default="all",
+        help="Algorithm to run",
+    )
+    parser.add_argument(
+        "--episodes", type=int, default=1000, help="Number of training episodes"
+    )
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
-    parser.add_argument("--output-dir", type=str, default="artifacts/results",
-                        help="Output directory for results")
-    parser.add_argument("--log-level", type=str, default="INFO",
-                        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
-                        help="Logging level")
+    parser.add_argument(
+        "--log-level",
+        type=str,
+        default="INFO",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+        help="Logging level",
+    )
+    parser.add_argument("--no-wandb", action="store_true", help="Disable wandb logging")
+    parser.add_argument(
+        "--force", action="store_true", help="Force retraining even if model exists"
+    )
+    parser.add_argument(
+        "--workload",
+        type=str,
+        choices=["smooth", "bursty", "seasonal"],
+        default="smooth",
+        help="Workload pattern: smooth (baseline), bursty (spike injections), seasonal (periodic)",
+    )
     args = parser.parse_args()
-    
-    # Setup logging
+
+    # Setup wandb
+    USE_WANDB = not args.no_wandb
+    if USE_WANDB and WANDB_AVAILABLE:
+        api_key = load_wandb_key()
+        if api_key:
+            import wandb
+
+            wandb.login(key=api_key)
+
+    # Setup logging and output directories
     global logger
-    output_dir = PROJECT_ROOT / args.output_dir
-    logger = setup_logging(output_dir, args.log_level)
-    
+    global WORKLOAD_TYPE
+    logger = setup_logging(args.log_level)
+    WORKLOAD_TYPE = args.workload  # Set global workload type for model naming
+
+    results_dir = PROJECT_ROOT / "artifacts" / "results"
+    plots_dir = PROJECT_ROOT / "artifacts" / "plots"
+    results_dir.mkdir(parents=True, exist_ok=True)
+    plots_dir.mkdir(parents=True, exist_ok=True)
+
     # Adjust for quick mode
     n_episodes = 100 if args.quick else args.episodes
-    
+
     logger.info("=" * 60)
     logger.info("Cloud Autoscaling RL Experiments")
     logger.info("=" * 60)
     logger.info("Configuration:")
     logger.info(f"  Episodes: {n_episodes}")
     logger.info(f"  Algorithm: {args.algo}")
+    logger.info(f"  Workload: {args.workload}")
     logger.info(f"  Seed: {args.seed}")
-    logger.info(f"  Output directory: {output_dir}")
+    logger.info(f"  Results directory: {results_dir}")
+    logger.info(f"  Plots directory: {plots_dir}")
     logger.info(f"  Quick mode: {args.quick}")
     logger.info(f"  Log level: {args.log_level}")
-    
-    # Generate workload
+    logger.info(
+        f"  Wandb logging: {'enabled' if USE_WANDB and WANDB_AVAILABLE else 'disabled'}"
+    )
+
+    # Generate workload and apply transformation
     logger.info("Generating synthetic workload data...")
     workload = generate_workload(length=1000, seed=args.seed)
-    logger.debug(f"Workload stats: min={workload.min():.2f}, max={workload.max():.2f}, mean={workload.mean():.2f}")
+    logger.debug(
+        f"Base workload stats: min={workload.min():.2f}, max={workload.max():.2f}, mean={workload.mean():.2f}"
+    )
     
+    # Apply workload transformation based on config
+    import pandas as pd
+    df_workload = pd.DataFrame({"avg_cpu": workload / 100.0})  # Normalize to 0-1 for transform
+    df_transformed = transform_workload(df_workload, args.workload)
+    workload = (df_transformed["avg_cpu"].values * 100.0).astype(np.float32)  # Back to 0-100 scale
+    logger.info(f"Applied '{args.workload}' workload transformation")
+    logger.debug(
+        f"Transformed workload stats: min={workload.min():.2f}, max={workload.max():.2f}, mean={workload.mean():.2f}, std={workload.std():.2f}"
+    )
+    
+    # Get environment config for the workload type
+    env_config = get_config(args.workload)
+    logger.info(f"Environment config: cooldown={env_config.cooldown_period}, sla_weight={env_config.sla_weight}")
+
     env = CloudAutoscalingEnv(workload_data=workload, seed=args.seed)
-    logger.info(f"Environment created: state_space={env.observation_space}, action_space={env.action_space}")
-    
+    logger.info(
+        f"Environment created: state_space={env.observation_space}, action_space={env.action_space}"
+    )
+
     results = {}
     start_time = datetime.now()
+
+    # Determine which algorithms to run
+    run_baselines = args.algo in ["all", "tabular", "baselines"]
+    run_tabular = args.algo in ["all", "tabular"]
+    run_deep = args.algo in ["all", "deep"]
+    run_q_learning = args.algo in ["all", "tabular", "q-learning"]
+    run_sarsa = args.algo in ["all", "tabular", "sarsa"]
+    run_dqn = args.algo in ["all", "deep", "dqn"]
+    run_double_dqn = args.algo in ["all", "deep", "double-dqn"]
+    run_dueling_dqn = args.algo in ["all", "deep", "dueling-dqn"]
+    run_reinforce = args.algo in ["all", "deep", "reinforce"]
     
+    # Whether to skip training if model exists
+    skip_if_exists = not args.force
+
     # Run baselines
-    if args.algo in ["all", "baselines"]:
-        results["baselines"] = run_baseline_policies(env, n_episodes=min(100, n_episodes))
-    
+    if run_baselines:
+        results["baselines"] = run_baseline_policies(
+            env, n_episodes=min(100, n_episodes)
+        )
+        save_results(results, results_dir, plots_dir)  # Save incrementally
+
     # Run Q-Learning
-    if args.algo in ["all", "q-learning"]:
+    if run_q_learning:
         results["q_learning"] = train_q_learning_agent(
-            env, n_episodes=n_episodes, seed=args.seed
+            env, n_episodes=n_episodes, seed=args.seed, skip_if_exists=skip_if_exists
         )
-    
+        save_results(results, results_dir, plots_dir)  # Save incrementally
+
     # Run SARSA
-    if args.algo in ["all", "sarsa"]:
+    if run_sarsa:
         results["sarsa"] = train_sarsa_agent(
-            env, n_episodes=n_episodes, seed=args.seed
+            env, n_episodes=n_episodes, seed=args.seed, skip_if_exists=skip_if_exists
         )
-    
-    # Save results
-    save_results(results, output_dir)
-    
+        save_results(results, results_dir, plots_dir)  # Save incrementally
+
+    # Run DQN
+    if run_dqn:
+        results["dqn"] = train_dqn_agent(
+            env, n_episodes=n_episodes, agent_type="dqn", seed=args.seed,
+            skip_if_exists=skip_if_exists
+        )
+        save_results(results, results_dir, plots_dir)  # Save incrementally
+
+    # Run Double DQN
+    if run_double_dqn:
+        results["double_dqn"] = train_dqn_agent(
+            env, n_episodes=n_episodes, agent_type="double_dqn", seed=args.seed,
+            skip_if_exists=skip_if_exists
+        )
+        save_results(results, results_dir, plots_dir)  # Save incrementally
+
+    # Run Dueling DQN
+    if run_dueling_dqn:
+        results["dueling_dqn"] = train_dqn_agent(
+            env, n_episodes=n_episodes, agent_type="dueling_dqn", seed=args.seed,
+            skip_if_exists=skip_if_exists
+        )
+        save_results(results, results_dir, plots_dir)  # Save incrementally
+
+    # Run REINFORCE (Policy Gradient)
+    if run_reinforce:
+        results["reinforce"] = train_reinforce_agent(
+            env, n_episodes=n_episodes, agent_type="reinforce", seed=args.seed,
+            skip_if_exists=skip_if_exists, use_baseline=True
+        )
+        save_results(results, results_dir, plots_dir)  # Save final results
+
     # Calculate elapsed time
     elapsed_time = datetime.now() - start_time
-    
+
     # Print summary
     logger.info("=" * 60)
     logger.info("EXPERIMENT SUMMARY")
     logger.info("=" * 60)
-    
+
     if "baselines" in results:
         logger.info("Baseline Policies:")
         for name, data in results["baselines"].items():
-            logger.info(f"  {name.capitalize()}: reward={data['mean_reward']:.2f}, sla_violations={data['mean_sla_violations']:.2f}")
-    
+            logger.info(
+                f"  {name.capitalize()}: reward={data['mean_reward']:.2f}, sla_violations={data['mean_sla_violations']:.2f}"
+            )
+
     if "q_learning" in results:
-        logger.info(f"Q-Learning: reward={results['q_learning']['mean_reward']:.2f}, sla={results['q_learning']['mean_sla']:.2f}")
-    
+        logger.info(
+            f"Q-Learning: reward={results['q_learning']['mean_reward']:.2f}, sla={results['q_learning']['mean_sla']:.2f}"
+        )
+
     if "sarsa" in results:
-        logger.info(f"SARSA: reward={results['sarsa']['mean_reward']:.2f}, sla={results['sarsa']['mean_sla']:.2f}")
-    
+        logger.info(
+            f"SARSA: reward={results['sarsa']['mean_reward']:.2f}, sla={results['sarsa']['mean_sla']:.2f}"
+        )
+
+    # Deep RL results
+    if "dqn" in results:
+        logger.info(
+            f"DQN: reward={results['dqn']['mean_reward']:.2f}, sla={results['dqn']['mean_sla']:.2f}"
+        )
+
+    if "double_dqn" in results:
+        logger.info(
+            f"Double DQN: reward={results['double_dqn']['mean_reward']:.2f}, sla={results['double_dqn']['mean_sla']:.2f}"
+        )
+
+    if "dueling_dqn" in results:
+        logger.info(
+            f"Dueling DQN: reward={results['dueling_dqn']['mean_reward']:.2f}, sla={results['dueling_dqn']['mean_sla']:.2f}"
+        )
+
+    if "reinforce" in results:
+        logger.info(
+            f"REINFORCE: reward={results['reinforce']['mean_reward']:.2f}, sla={results['reinforce']['mean_sla']:.2f}"
+        )
+
     logger.info("=" * 60)
     logger.info(f"Total runtime: {elapsed_time}")
     logger.info("Experiments complete!")
-    
+
     env.close()
 
 
