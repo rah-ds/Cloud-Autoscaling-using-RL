@@ -4,10 +4,34 @@
 [![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
 ![Python 3.12](https://img.shields.io/badge/Python-3.12-black?logo=python&logoColor=blue)
 [![Coverage](https://img.shields.io/badge/coverage-35%25-yellow)](tests/)
+[![Weights & Biases](https://img.shields.io/badge/Weights%20%26%20Biases-FFCC33?style=flat&logo=weightsandbiases&logoColor=black)](https://wandb.ai/healydatascience-university-of-virginia/cloud-autoscaling-rl?nw=nwuserhealydatascience)
 
-This project aims to solve for when to scale and will explore whether reinforcement learning can make smarter decisions about cloud resource auto-scaling than today's simple threshold rules.
+A comprehensive reinforcement learning approach to cloud auto-scaling that learns optimal scaling policies through interaction with a simulated cloud environment.
 
-We aim to build a small simulator where cloud workloads vary over time and then have an RL agent decide when to add or remove capacity. The goal is to see if reinforcement learning methods like SARSA and Q-learning can keep performance high while avoiding unnecessary cost.
+## Key Findings
+
+🏆 **REINFORCE with baseline achieves the fewest SLA violations (329)**, outperforming all other methods in service reliability.
+
+| Algorithm | Mean Reward | SLA Violations | Improvement vs Random |
+|-----------|-------------|----------------|----------------------|
+| **REINFORCE** | -16,938 | **329** | +77.1% |
+| SARSA | -16,893 | 337 | +77.2% |
+| Q-Learning | -17,215 | 341 | +76.8% |
+| Threshold | -18,158 | 365 | +75.5% |
+| Double DQN | -21,596 | 397 | +70.8% |
+| DQN | -21,563 | 400 | +70.9% |
+| Dueling DQN | -27,586 | 474 | +62.8% |
+| Random | -74,095 | 676 | — |
+
+**Surprising Result**: Tabular methods (SARSA, Q-Learning) and policy gradient (REINFORCE) significantly outperform deep RL variants (DQN, Double DQN, Dueling DQN) in this domain.
+
+## Algorithms Implemented
+
+We compare **7 algorithms** across **4 categories**:
+- **Baselines**: Random, Threshold
+- **Tabular RL**: SARSA, Q-Learning  
+- **Deep RL**: DQN, Double DQN, Dueling DQN
+- **Policy Gradient**: REINFORCE with baseline
 
 ### Expected Impact: RL vs. Traditional Methods
 
@@ -57,10 +81,12 @@ This project investigates whether these theoretical benefits translate to measur
 
 📖 **[Model Architectures & Metrics Documentation](docs/model_architectures.md)** — Detailed descriptions of all algorithms, neural network architectures, and evaluation metrics.
 
-Our experiments compare Deep RL agents (DQN, Double DQN, Dueling DQN) trained over 2000 episodes. Click to expand each visualization:
+📄 **[Final Paper](docs/final_paper/improved_draft.tex)** — Complete academic paper with methodology, results, and analysis.
+
+Our experiments compare 7 algorithms across 4 categories trained over 1,000-2,000 episodes. Click to expand each visualization:
 
 <details>
-<summary><b>🧠 Evidence of Learning</b></summary>
+<summary><b>Evidence of Learning</b></summary>
 
 ![Learning Evidence](docs/final_plots/learning_evidence.png)
 
@@ -77,7 +103,7 @@ Our experiments compare Deep RL agents (DQN, Double DQN, Dueling DQN) trained ov
 </details>
 
 <details>
-<summary><b>📈 Learning Curves</b></summary>
+<summary><b>Learning Curves</b></summary>
 
 ![Learning Curves](docs/final_plots/learning_curves_20251203_120832.png)
 
@@ -85,14 +111,7 @@ Our experiments compare Deep RL agents (DQN, Double DQN, Dueling DQN) trained ov
 
 </details>
 
-<details>
-<summary><b>📊 Algorithm Comparison</b></summary>
 
-![Algorithm Comparison](docs/final_plots/algorithm_comparison_20251203_120832.png)
-
-*Bar chart comparing mean rewards across algorithms with improvement percentages relative to baseline.*
-
-</details>
 
 <details>
 <summary><b>🔍 Convergence Analysis</b></summary>
@@ -172,38 +191,6 @@ Cloud Autoscaling RL - Available Commands
   jupyter              Start Jupyter notebook
 ```
 
-## Development Workflow
-
-### Pre-commit Hooks
-
-This project uses pre-commit hooks to maintain code quality. The hooks automatically:
-
-- Remove trailing whitespace
-- Ensure files end with a newline
-- Validate YAML and TOML files
-- Check for merge conflicts
-- Run Ruff for linting and formatting
-
-To set up pre-commit hooks:
-
-```bash
-# Install pre-commit hooks
-make pre-commit-install
-
-# Or manually
-uv run pre-commit install
-```
-
-Once installed, the hooks will run automatically on `git commit`. You can also run them manually:
-
-```bash
-# Run on all files
-make pre-commit-run
-
-# Or manually
-uv run pre-commit run --all-files
-```
-
 
 ## Important Links
 
@@ -238,12 +225,17 @@ uv run pre-commit run --all-files
 
 ### Project Team
 
-- **Balasubramanyam, Srivatsa** - Core contributor, RL agent implementation and experiments
-- **Healy, Ryan** - Core contributor, simulator development and data processing
-- **McGregor, Bruce** - Core contributor, baseline policies and evaluation metrics
+- **Balasubramanyam, Srivatsa**
+- **Healy, Ryan**
+- **McGregor, Bruce**
 
-## Acknowledgments
+## Reproducibility
 
-- University of Virginia - Master of Science in Data Science program
-- Professor Adam Tashman
+Training was performed on:
 
+- **Google Colab** with NVIDIA A100 GPUs
+- **Apple M3 Max** with Metal GPU acceleration
+
+All hyperparameters, random seeds, and environment configurations are documented in the `configs/` directory.
+
+📊 **[View Experiment Logs on Weights & Biases](https://wandb.ai/healydatascience-university-of-virginia/cloud-autoscaling-rl?nw=nwuserhealydatascience)**

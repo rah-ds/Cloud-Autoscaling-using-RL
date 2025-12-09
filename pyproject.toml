@@ -1,9 +1,15 @@
 [project]
 name = "cloud-autoscaling-using-rl"
-version = "0.1.0"
-description = "Add your description here"
+version = "1.0.0"
+description = "Reinforcement learning approach to cloud auto-scaling comparing tabular RL, deep RL, and policy gradient methods"
 readme = "README.md"
 requires-python = ">=3.12"
+authors = [
+    {name = "Srivatsa Balasubramanyam"},
+    {name = "Ryan Healy"},
+    {name = "Bruce McGregor"},
+]
+keywords = ["reinforcement-learning", "cloud-computing", "auto-scaling", "DQN", "SARSA", "Q-Learning", "REINFORCE"]
 dependencies = [
     "gymnasium>=1.2.1",
     "jupyter>=1.1.1",

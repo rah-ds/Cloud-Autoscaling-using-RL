@@ -1,583 +1,141 @@
-# Model Architectures and Metrics
+# Model Architectures & Evaluation Metrics
 
-This document describes the reinforcement learning algorithms implemented for cloud autoscaling, their architectures, and the metrics used to evaluate them.
+This document provides detailed descriptions of all algorithms implemented in this project, their neural network architectures, and the evaluation metrics used.
 
-## Table of Contents
+## Algorithms Overview
 
-- [Overview](#overview)
-- [Environment](#environment)
-- [Baseline Policies](#baseline-policies)
-- [Tabular Methods](#tabular-methods)
-- [Deep RL Methods](#deep-rl-methods)
-- [Evaluation Metrics](#evaluation-metrics)
-- [Hyperparameters](#hyperparameters)
+We implement **7 algorithms** across **4 categories**:
 
----
+| Category | Algorithm | Type | Key Characteristics |
+|----------|-----------|------|---------------------|
+| Baseline | Random | Non-learning | Uniform random action selection |
+| Baseline | Threshold | Rule-based | Scale up >80%, scale down <40% |
+| Tabular RL | SARSA | On-policy | Conservative, learns from actual actions |
+| Tabular RL | Q-Learning | Off-policy | Learns optimal policy, more aggressive |
+| Deep RL | DQN | Value-based | Neural network Q-function approximation |
+| Deep RL | Double DQN | Value-based | Reduces overestimation bias |
+| Deep RL | Dueling DQN | Value-based | Separates state value and action advantage |
+| Policy Gradient | REINFORCE | Policy-based | Direct policy optimization with baseline |
 
-## Overview
+## Neural Network Architectures
 
-Our autoscaling system uses reinforcement learning to decide when to scale cloud resources up or down. The agent observes the current system state and takes actions to balance performance (avoiding SLA violations) with cost (minimizing over-provisioning).
-
+### DQN / Double DQN
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                    RL Autoscaling Framework                      │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│   ┌──────────┐      Action       ┌──────────────────┐           │
-│   │          │ ───────────────▶  │                  │           │
-│   │  Agent   │                   │   Environment    │           │
-│   │          │ ◀───────────────  │  (Cloud Sim)     │           │
-│   └──────────┘   State, Reward   └──────────────────┘           │
-│                                                                  │
-│   Actions: {Scale Down, Hold, Scale Up}                         │
-│   State: (utilization, capacity, trend, ...)                    │
-│   Reward: f(SLA compliance, cost efficiency)                    │
-│                                                                  │
-└─────────────────────────────────────────────────────────────────┘
+Input (state_dim=3) → FC(128) → ReLU → FC(128) → ReLU → FC(action_dim=3)
 ```
-
----
-
-## Environment
-
-### State Space
-
-The environment provides a continuous state representation:
-
-| Feature | Description | Range |
-|---------|-------------|-------|
-| `utilization` | Current CPU/memory utilization | [0, 1] |
-| `capacity` | Number of active instances | [1, max_capacity] |
-| `demand_trend` | Recent demand trajectory | [-1, 1] |
-| `time_features` | Time-of-day encoding | [0, 1] |
-
-### Action Space
-
-Discrete action space with 3 actions:
-
-```
-Action Space = {0: Scale Down, 1: Hold, 2: Scale Up}
-
-┌─────────────────────────────────────────────────────────────┐
-│                        Action Effects                        │
-├─────────────────────────────────────────────────────────────┤
-│                                                              │
-│   Scale Down (0)          Hold (1)           Scale Up (2)   │
-│   ┌─────────┐            ┌─────────┐         ┌─────────┐    │
-│   │ █ █ █   │            │ █ █ █ █ │         │ █ █ █ █ █│   │
-│   │ █ █ █   │            │ █ █ █ █ │         │ █ █ █ █ █│   │
-│   │   ↓     │            │    =    │         │     ↑    │   │
-│   │ █ █     │            │ █ █ █ █ │         │ █ █ █ █ █│   │
-│   └─────────┘            └─────────┘         │ █ █ █ █ █│   │
-│   -1 instance            No change           └─────────┘    │
-│                                              +1 instance    │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### Reward Function
-
-The reward balances SLA compliance with cost efficiency:
-
-```
-reward = -α × SLA_violations - β × over_provisioning_cost + γ × efficiency_bonus
-
-Where:
-  • α = penalty weight for SLA violations (high utilization)
-  • β = penalty weight for over-provisioning (wasted resources)
-  • γ = bonus for optimal utilization range
-```
-
----
-
-## Baseline Policies
-
-### Random Policy
-
-Selects actions uniformly at random. Used as a lower bound for comparison.
-
-```
-┌────────────────────────────────────┐
-│         Random Policy              │
-├────────────────────────────────────┤
-│                                    │
-│   P(Scale Down) = 1/3              │
-│   P(Hold)       = 1/3              │
-│   P(Scale Up)   = 1/3              │
-│                                    │
-│   No learning, pure exploration    │
-│                                    │
-└────────────────────────────────────┘
-```
-
-### Threshold Policy
-
-Traditional rule-based autoscaling:
-
-```
-┌────────────────────────────────────────────────────────────┐
-│                    Threshold Policy                         │
-├────────────────────────────────────────────────────────────┤
-│                                                             │
-│   if utilization > HIGH_THRESHOLD (e.g., 0.8):             │
-│       action = Scale Up                                     │
-│   elif utilization < LOW_THRESHOLD (e.g., 0.3):            │
-│       action = Scale Down                                   │
-│   else:                                                     │
-│       action = Hold                                         │
-│                                                             │
-│   ┌─────────────────────────────────────────────────────┐  │
-│   │  0%        30%              80%              100%   │  │
-│   │  ├──────────┼───────────────┼──────────────────┤    │  │
-│   │  │Scale Down│     Hold      │    Scale Up     │    │  │
-│   └─────────────────────────────────────────────────────┘  │
-│                                                             │
-└────────────────────────────────────────────────────────────┘
-```
-
----
-
-## Tabular Methods
-
-### Q-Learning
-
-Off-policy temporal difference learning with ε-greedy exploration.
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        Q-Learning                                │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│   Q-Table Structure:                                             │
-│   ┌─────────────────────────────────────────────────────────┐   │
-│   │  State    │ Scale Down │   Hold   │  Scale Up  │        │   │
-│   ├───────────┼────────────┼──────────┼────────────┤        │   │
-│   │  s₁       │   -2.3     │   1.5    │    0.8     │        │   │
-│   │  s₂       │    0.5     │   2.1    │   -1.2     │        │   │
-│   │  s₃       │   -0.8     │   0.3    │    3.2     │        │   │
-│   │  ...      │    ...     │   ...    │    ...     │        │   │
-│   └─────────────────────────────────────────────────────────┘   │
-│                                                                  │
-│   Update Rule:                                                   │
-│   Q(s,a) ← Q(s,a) + α[r + γ·max_a' Q(s',a') - Q(s,a)]          │
-│                                                                  │
-│   Where:                                                         │
-│   • α = learning rate                                            │
-│   • γ = discount factor                                          │
-│   • max_a' Q(s',a') = best future value (off-policy)            │
-│                                                                  │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### SARSA
-
-On-policy temporal difference learning.
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                          SARSA                                   │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│   Update Rule:                                                   │
-│   Q(s,a) ← Q(s,a) + α[r + γ·Q(s',a') - Q(s,a)]                 │
-│                                                                  │
-│   Key Difference from Q-Learning:                                │
-│   ┌─────────────────────────────────────────────────────────┐   │
-│   │                                                          │   │
-│   │   Q-Learning:  Uses max_a' Q(s',a') — greedy next action│   │
-│   │   SARSA:       Uses Q(s',a') — actual next action taken │   │
-│   │                                                          │   │
-│   │   SARSA follows the policy it's learning (on-policy)    │   │
-│   │   More conservative, accounts for exploration           │   │
-│   │                                                          │   │
-│   └─────────────────────────────────────────────────────────┘   │
-│                                                                  │
-│   SARSA = State-Action-Reward-State-Action                      │
-│   (s, a, r, s', a')                                             │
-│                                                                  │
-└─────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## Deep RL Methods
-
-### DQN (Deep Q-Network)
-
-Uses a neural network to approximate the Q-function for continuous state spaces.
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                      DQN Architecture                            │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│   State Input                                                    │
-│   [util, capacity, trend, ...]                                  │
-│         │                                                        │
-│         ▼                                                        │
-│   ┌─────────────────┐                                           │
-│   │  Dense Layer    │  128 units, ReLU                          │
-│   │  (FC1)          │                                           │
-│   └────────┬────────┘                                           │
-│            │                                                     │
-│            ▼                                                     │
-│   ┌─────────────────┐                                           │
-│   │  Dense Layer    │  128 units, ReLU                          │
-│   │  (FC2)          │                                           │
-│   └────────┬────────┘                                           │
-│            │                                                     │
-│            ▼                                                     │
-│   ┌─────────────────┐                                           │
-│   │  Output Layer   │  3 units (Q-values for each action)       │
-│   │  (FC3)          │                                           │
-│   └────────┬────────┘                                           │
-│            │                                                     │
-│            ▼                                                     │
-│   Q(s, Scale Down), Q(s, Hold), Q(s, Scale Up)                  │
-│                                                                  │
-│   Key Innovations:                                               │
-│   • Experience Replay Buffer                                     │
-│   • Target Network (updated every N steps)                       │
-│   • ε-greedy exploration with decay                             │
-│                                                                  │
-└─────────────────────────────────────────────────────────────────┘
-
-Experience Replay:
-┌─────────────────────────────────────────────────────────────────┐
-│   ┌─────┬─────┬─────┬─────┬─────┬─────┬─────┬─────┬─────┐      │
-│   │ t-7 │ t-6 │ t-5 │ t-4 │ t-3 │ t-2 │ t-1 │  t  │     │      │
-│   └─────┴─────┴─────┴─────┴─────┴─────┴─────┴─────┴─────┘      │
-│          │           │                 │                         │
-│          └───────────┼─────────────────┘                         │
-│                      ▼                                           │
-│              Random Sampling                                     │
-│              (breaks correlation)                                │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### Double DQN
-
-Addresses overestimation bias in standard DQN by decoupling action selection from evaluation.
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    Double DQN Architecture                       │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│                    ┌──────────────┐                             │
-│          ┌────────▶│ Online Net   │────────┐                    │
-│          │         │   (θ)        │        │                    │
-│          │         └──────────────┘        │                    │
-│   State ─┤                                 ├──▶ Update θ        │
-│          │         ┌──────────────┐        │                    │
-│          └────────▶│ Target Net   │────────┘                    │
-│                    │   (θ⁻)       │                             │
-│                    └──────────────┘                             │
-│                                                                  │
-│   Standard DQN:                                                  │
-│   y = r + γ · max_a' Q(s', a'; θ⁻)                             │
-│                ↑ Same network selects AND evaluates             │
-│                                                                  │
-│   Double DQN:                                                    │
-│   a* = argmax_a' Q(s', a'; θ)    ← Online net selects          │
-│   y = r + γ · Q(s', a*; θ⁻)      ← Target net evaluates        │
-│                                                                  │
-│   Benefit: Reduces overestimation of Q-values                   │
-│                                                                  │
-└─────────────────────────────────────────────────────────────────┘
-```
+- **Parameters**: ~17,000
+- **Output**: Q-values for each action
 
 ### Dueling DQN
-
-Separates state value from action advantages for better learning.
-
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                   Dueling DQN Architecture                       │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│   State Input                                                    │
-│   [util, capacity, trend, ...]                                  │
-│         │                                                        │
-│         ▼                                                        │
-│   ┌─────────────────┐                                           │
-│   │  Shared Layers  │  Feature extraction                       │
-│   │  (FC1, FC2)     │  128 → 128 units                          │
-│   └────────┬────────┘                                           │
-│            │                                                     │
-│      ┌─────┴─────┐                                              │
-│      │           │                                               │
-│      ▼           ▼                                               │
-│   ┌──────┐   ┌────────┐                                         │
-│   │Value │   │Advantage│                                        │
-│   │Stream│   │ Stream  │                                        │
-│   │ V(s) │   │ A(s,a)  │                                        │
-│   │      │   │         │                                        │
-│   │ [1]  │   │  [3]    │                                        │
-│   └───┬──┘   └────┬───┘                                         │
-│       │           │                                              │
-│       └─────┬─────┘                                              │
-│             │                                                    │
-│             ▼                                                    │
-│   ┌─────────────────────────────────────────────────────────┐   │
-│   │  Q(s,a) = V(s) + (A(s,a) - mean(A(s,·)))               │   │
-│   └─────────────────────────────────────────────────────────┘   │
-│             │                                                    │
-│             ▼                                                    │
-│   Q(s, Scale Down), Q(s, Hold), Q(s, Scale Up)                  │
-│                                                                  │
-│   Why This Works:                                                │
-│   ┌─────────────────────────────────────────────────────────┐   │
-│   │  • V(s): "How good is this state?"                      │   │
-│   │  • A(s,a): "How much better is action a than average?"  │   │
-│   │  • Learns state value even when action doesn't matter   │   │
-│   │  • Better credit assignment in sparse reward settings   │   │
-│   └─────────────────────────────────────────────────────────┘   │
-│                                                                  │
-└─────────────────────────────────────────────────────────────────┘
+Input (state_dim=3) → FC(128) → ReLU → FC(128) → ReLU
+                                          ↓
+                    ┌─────────────────────┴─────────────────────┐
+                    ↓                                           ↓
+            Value Stream                                Advantage Stream
+            FC(128) → V(s)                              FC(128) → A(s,a)
+                    ↓                                           ↓
+                    └─────────────── Q(s,a) = V(s) + (A(s,a) - mean(A)) ──────┘
 ```
+- **Parameters**: ~25,000
+- **Output**: Q-values via value-advantage decomposition
 
-### REINFORCE (Policy Gradient)
-
-Unlike value-based methods (DQN), REINFORCE learns a policy directly.
-
+### REINFORCE (Policy Network)
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                   REINFORCE Architecture                         │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│   Key Difference from DQN:                                       │
-│   ┌─────────────────────────────────────────────────────────┐   │
-│   │  DQN:       Learns Q(s,a) → derives policy from values  │   │
-│   │  REINFORCE: Learns π(a|s) → policy directly             │   │
-│   └─────────────────────────────────────────────────────────┘   │
-│                                                                  │
-│   State Input                                                    │
-│   [util, capacity, trend, ...]                                  │
-│         │                                                        │
-│         ▼                                                        │
-│   ┌─────────────────┐                                           │
-│   │  Dense Layer    │  128 units, ReLU                          │
-│   │  (FC1)          │                                           │
-│   └────────┬────────┘                                           │
-│            │                                                     │
-│            ▼                                                     │
-│   ┌─────────────────┐                                           │
-│   │  Dense Layer    │  128 units, ReLU                          │
-│   │  (FC2)          │                                           │
-│   └────────┬────────┘                                           │
-│            │                                                     │
-│            ▼                                                     │
-│   ┌─────────────────┐                                           │
-│   │  Output Layer   │  3 units + Softmax                        │
-│   │  (Probabilities)│                                           │
-│   └────────┬────────┘                                           │
-│            │                                                     │
-│            ▼                                                     │
-│   P(Scale Down), P(Hold), P(Scale Up)  ← sum to 1.0            │
-│                                                                  │
-│   Training:                                                      │
-│   ┌─────────────────────────────────────────────────────────┐   │
-│   │  1. Run full episode, collect (s, a, r) trajectory     │   │
-│   │  2. Compute discounted returns: G_t = Σ γ^k r_{t+k}     │   │
-│   │  3. Policy gradient: ∇J = Σ ∇log π(a|s) · G_t          │   │
-│   │  4. Update: θ ← θ + α · ∇J                              │   │
-│   └─────────────────────────────────────────────────────────┘   │
-│                                                                  │
-│   Variance Reduction (Baseline):                                 │
-│   ┌─────────────────────────────────────────────────────────┐   │
-│   │  Instead of G_t, use advantage: A_t = G_t - V(s)        │   │
-│   │  This reduces variance while keeping gradient unbiased  │   │
-│   └─────────────────────────────────────────────────────────┘   │
-│                                                                  │
-└─────────────────────────────────────────────────────────────────┘
+Input (state_dim=3) → FC(128) → ReLU → FC(128) → ReLU → FC(action_dim=3) → Softmax
+```
+- **Parameters**: ~17,000
+- **Output**: Action probabilities π(a|s)
+
+## Hyperparameters
+
+### Tabular Methods (SARSA, Q-Learning)
+| Parameter | Value |
+|-----------|-------|
+| Learning rate (α) | 0.1 |
+| Discount factor (γ) | 0.99 |
+| Initial ε | 1.0 |
+| Final ε | 0.01 |
+| ε decay | 0.995 |
+| Training episodes | 1,000 |
+
+### Deep RL Methods (DQN, Double DQN, Dueling DQN, REINFORCE)
+| Parameter | Value |
+|-----------|-------|
+| Learning rate | 5×10⁻⁴ |
+| Discount factor (γ) | 0.99 |
+| Initial ε | 1.0 |
+| Final ε | 0.05 |
+| ε decay | 0.999 |
+| Batch size | 64 |
+| Replay buffer size | 100,000 |
+| Target update (τ) | 10⁻³ |
+| Hidden layers | [128, 128] |
+| Training episodes | 1,000 |
+
+## State Space
+
+Each state is a 3-tuple:
+```
+s_t = (utilization, capacity, trend)
 ```
 
----
+| Component | Values | Description |
+|-----------|--------|-------------|
+| Utilization | {0, 1, 2} | Low (<40%), Medium (40-80%), High (>80%) |
+| Capacity | {1, ..., C_max} | Current number of active capacity units |
+| Trend | {-1, 0, +1} | Falling, Flat, Rising demand |
 
-## Algorithm Comparison
+**Total state space size**: 3 × 5 × 3 = **45 states**
+
+## Action Space
+
+| Action | Value | Description |
+|--------|-------|-------------|
+| Scale Down | -1 | Remove one capacity unit |
+| Hold | 0 | Maintain current capacity |
+| Scale Up | +1 | Add one capacity unit |
+
+## Reward Function
+
+The multi-component reward function balances SLA compliance, cost, and stability:
 
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                        Algorithm Comparison                              │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│   Algorithm      │ State Space │ Off/On-Policy │ Key Feature            │
-│   ───────────────┼─────────────┼───────────────┼────────────────────────│
-│   Q-Learning     │ Discrete    │ Off-policy    │ Simple, tabular        │
-│   SARSA          │ Discrete    │ On-policy     │ Conservative updates   │
-│   DQN            │ Continuous  │ Off-policy    │ Experience replay      │
-│   Double DQN     │ Continuous  │ Off-policy    │ Reduced overestimation │
-│   Dueling DQN    │ Continuous  │ Off-policy    │ Value/advantage split  │
-│   REINFORCE      │ Continuous  │ On-policy     │ Policy gradient        │
-│                                                                          │
-│   Method Categories:                                                     │
-│   ┌─────────────────────────────────────────────────────────────────┐   │
-│   │  VALUE-BASED          vs          POLICY-BASED                  │   │
-│   │  ─────────────────────────────────────────────────────────────  │   │
-│   │  Q-Learning, SARSA                REINFORCE                     │   │
-│   │  DQN, Double DQN, Dueling DQN                                   │   │
-│   │                                                                  │   │
-│   │  Learn Q(s,a) → derive policy     Learn π(a|s) directly        │   │
-│   │  Deterministic output             Stochastic output             │   │
-│   │  ε-greedy exploration             Natural exploration           │   │
-│   └─────────────────────────────────────────────────────────────────┘   │
-│                                                                          │
-│   Complexity Hierarchy:                                                  │
-│                                                                          │
-│   Simple ◀────────────────────────────────────────────────▶ Complex     │
-│                                                                          │
-│   Random → Threshold → Q-Learning → SARSA → DQN → REINFORCE → Dueling  │
-│     │         │            │          │       │        │         │      │
-│   No        Rule-       Tabular    Tabular  Neural  Policy   Separate  │
-│   Learning  Based       Q-table    Q-table  Net     Gradient Streams   │
-│                                                                          │
-└─────────────────────────────────────────────────────────────────────────┘
+r_t = r_opt + r_eff + r_SLA + r_waste + r_cost + r_churn
 ```
 
----
+| Component | Value | Condition |
+|-----------|-------|-----------|
+| Optimal utilization | +10 | 40% ≤ u ≤ 80% |
+| Efficiency bonus | +5 | 60% ≤ u ≤ 70% |
+| SLA penalty | -50 × (1 + (u - 0.9)) | u ≥ 90% |
+| Waste penalty | -5 × (0.2 - u) | u < 20% |
+| Cost penalty | -0.5 × C | Always |
+| Churn penalty | -2 | Action ≠ hold |
 
 ## Evaluation Metrics
 
 ### Primary Metrics
+- **Mean Reward**: Average cumulative reward over final 100 episodes
+- **SLA Violations**: Count of timesteps where utilization ≥ 90%
+- **Improvement**: Percentage improvement over random baseline
 
-| Metric | Formula | Description |
-|--------|---------|-------------|
-| **Mean Reward** | Σr / n | Average reward per episode |
-| **Cumulative Reward** | Σr | Total reward over training |
-| **SLA Violation Rate** | violations / total_steps | % of steps with high utilization |
-| **Over-provisioning Rate** | underutilized / total_steps | % of steps with low utilization |
+### Convergence Metrics
+- **Convergence Speed**: Episodes to reach 90% of final performance
+- **Stability**: Variance in rewards during final 100 episodes
+- **Learning Trend**: Slope of smoothed reward curve
 
-### Learning Metrics
+## Key Results
 
-| Metric | What It Measures | Evidence of Learning |
-|--------|------------------|---------------------|
-| **Reward Improvement** | (final - initial) / initial | > 50% improvement |
-| **Variance Reduction** | (var_early - var_final) / var_early | > 50% reduction |
-| **Trend Slope** | Linear regression slope | Positive slope |
-| **Convergence Time** | Episodes to stable policy | Faster = better |
+| Algorithm | Mean Reward | SLA Violations | Improvement |
+|-----------|-------------|----------------|-------------|
+| **REINFORCE** | -16,938 | **329** | +77.1% |
+| SARSA | -16,893 | 337 | +77.2% |
+| Q-Learning | -17,215 | 341 | +76.8% |
+| Threshold | -18,158 | 365 | +75.5% |
+| Double DQN | -21,596 | 397 | +70.8% |
+| DQN | -21,563 | 400 | +70.9% |
+| Dueling DQN | -27,586 | 474 | +62.8% |
+| Random | -74,095 | 676 | — |
 
-### Performance Comparison
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│              Metrics Visualization                               │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│   Reward Improvement:                                            │
-│   ┌───────────────────────────────────────────────────────────┐ │
-│   │ DQN        ████████████████████████████████████░░ +99.2%  │ │
-│   │ Double DQN ██████████████████████████████████████░ +101.1%│ │
-│   │ Dueling    ████████████████████████████████████████ +104% │ │
-│   └───────────────────────────────────────────────────────────┘ │
-│                                                                  │
-│   Variance Reduction (Stability):                                │
-│   ┌───────────────────────────────────────────────────────────┐ │
-│   │ DQN        ████████████████████████████████░░░░░░░ -81.2% │ │
-│   │ Double DQN ██████████████████████████████████████░ -85.7% │ │
-│   │ Dueling    ████████████████████████████████░░░░░░░ -81.1% │ │
-│   └───────────────────────────────────────────────────────────┘ │
-│                                                                  │
-│   Training Trend (slope per episode):                            │
-│   ┌───────────────────────────────────────────────────────────┐ │
-│   │ DQN        ▁▂▃▄▅▆▆▇▇█  +5.6/ep                            │ │
-│   │ Double DQN ▁▂▃▄▅▆▇▇██  +5.9/ep                            │ │
-│   │ Dueling    ▁▂▃▄▅▆▆▇▇█  +5.7/ep                            │ │
-│   └───────────────────────────────────────────────────────────┘ │
-│                                                                  │
-└─────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## Hyperparameters
-
-### Deep RL Hyperparameters
-
-| Parameter | DQN | Double DQN | Dueling DQN |
-|-----------|-----|------------|-------------|
-| Learning Rate | 1e-3 | 1e-3 | 1e-3 |
-| Discount Factor (γ) | 0.99 | 0.99 | 0.99 |
-| Epsilon Start | 1.0 | 1.0 | 1.0 |
-| Epsilon End | 0.01 | 0.01 | 0.01 |
-| Epsilon Decay | 0.995 | 0.995 | 0.995 |
-| Batch Size | 64 | 64 | 64 |
-| Replay Buffer Size | 10,000 | 10,000 | 10,000 |
-| Target Update Freq | 100 | 100 | 100 |
-| Hidden Layers | [128, 128] | [128, 128] | [128, 128] |
-
-### Policy Gradient Hyperparameters
-
-| Parameter | REINFORCE |
-|-----------|-----------|
-| Learning Rate | 1e-3 |
-| Discount Factor (γ) | 0.99 |
-| Use Baseline | Yes |
-| Hidden Layers | [128, 128] |
-| Gradient Clipping | 1.0 |
-| Update Frequency | End of episode (Monte Carlo) |
-
-### Tabular Hyperparameters
-
-| Parameter | Q-Learning | SARSA |
-|-----------|------------|-------|
-| Learning Rate (α) | 0.1 | 0.1 |
-| Discount Factor (γ) | 0.99 | 0.99 |
-| Epsilon Start | 1.0 | 1.0 |
-| Epsilon End | 0.01 | 0.01 |
-| Epsilon Decay | 0.995 | 0.995 |
-
----
-
-## Training Pipeline
-
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                         Training Pipeline                                │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│   1. Initialize                                                          │
-│   ┌─────────────────┐                                                   │
-│   │ • Create env    │                                                   │
-│   │ • Init agent    │                                                   │
-│   │ • Set ε = 1.0   │                                                   │
-│   └────────┬────────┘                                                   │
-│            │                                                             │
-│            ▼                                                             │
-│   2. Episode Loop (2000 episodes)                                       │
-│   ┌─────────────────────────────────────────────────────────────────┐  │
-│   │  ┌─────────────────────────────────────────────────────────┐    │  │
-│   │  │  Step Loop (until done)                                  │    │  │
-│   │  │  ┌─────────────────────────────────────────────────────┐│    │  │
-│   │  │  │ a) Observe state s                                  ││    │  │
-│   │  │  │ b) Select action a (ε-greedy)                       ││    │  │
-│   │  │  │ c) Execute a, get r, s'                             ││    │  │
-│   │  │  │ d) Store (s, a, r, s', done) in replay buffer       ││    │  │
-│   │  │  │ e) Sample batch, compute loss, update network       ││    │  │
-│   │  │  │ f) Every N steps: update target network             ││    │  │
-│   │  │  └─────────────────────────────────────────────────────┘│    │  │
-│   │  └─────────────────────────────────────────────────────────┘    │  │
-│   │                                                                  │  │
-│   │  • Decay epsilon                                                 │  │
-│   │  • Log episode reward                                            │  │
-│   │  • Save checkpoint if best                                       │  │
-│   └─────────────────────────────────────────────────────────────────┘  │
-│            │                                                             │
-│            ▼                                                             │
-│   3. Evaluation                                                          │
-│   ┌─────────────────┐                                                   │
-│   │ • Generate plots│                                                   │
-│   │ • Save results  │                                                   │
-│   │ • Export model  │                                                   │
-│   └─────────────────┘                                                   │
-│                                                                          │
-└─────────────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## References
-
-1. Mnih, V., et al. (2015). "Human-level control through deep reinforcement learning." *Nature*
-2. Van Hasselt, H., et al. (2016). "Deep Reinforcement Learning with Double Q-learning." *AAAI*
-3. Wang, Z., et al. (2016). "Dueling Network Architectures for Deep Reinforcement Learning." *ICML*
-4. Sutton, R. S., & Barto, A. G. (2018). *Reinforcement Learning: An Introduction*
+**Key Finding**: REINFORCE achieves the fewest SLA violations (329), making it the best choice when service reliability is paramount. Tabular methods achieve the best cumulative rewards while remaining interpretable.
