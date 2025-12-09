@@ -138,4 +138,4 @@ r_t = r_opt + r_eff + r_SLA + r_waste + r_cost + r_churn
 | Dueling DQN | -27,586 | 474 | +62.8% |
 | Random | -74,095 | 676 | — |
 
-**Key Finding**: REINFORCE achieves the fewest SLA violations (329), making it the best choice when service reliability is paramount. Tabular methods achieve the best cumulative rewards while remaining interpretable.
+**Key Finding**: REINFORCE achieves the fewest SLA violations (329), making it the best choice when service reliability is paramount. Tabular methods achieve the best cumulative rewards while remaining interpretable. Dueling did well but was variable across runs.
