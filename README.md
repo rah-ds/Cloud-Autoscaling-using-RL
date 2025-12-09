@@ -8,22 +8,6 @@
 
 A comprehensive reinforcement learning approach to cloud auto-scaling that learns optimal scaling policies through interaction with a simulated cloud environment.
 
-## Key Findings
-
-🏆 **REINFORCE with baseline achieves the fewest SLA violations (329)**, outperforming all other methods in service reliability.
-
-| Algorithm | Mean Reward | SLA Violations | Improvement vs Random |
-|-----------|-------------|----------------|----------------------|
-| **REINFORCE** | -16,938 | **329** | +77.1% |
-| SARSA | -16,893 | 337 | +77.2% |
-| Q-Learning | -17,215 | 341 | +76.8% |
-| Threshold | -18,158 | 365 | +75.5% |
-| Double DQN | -21,596 | 397 | +70.8% |
-| DQN | -21,563 | 400 | +70.9% |
-| Dueling DQN | -27,586 | 474 | +62.8% |
-| Random | -74,095 | 676 | — |
-
-**Surprising Result**: Tabular methods (SARSA, Q-Learning) and policy gradient (REINFORCE) significantly outperform deep RL variants (DQN, Double DQN, Dueling DQN) in this domain.
 
 ## Algorithms Implemented
 
@@ -85,51 +69,6 @@ This project investigates whether these theoretical benefits translate to measur
 
 Our experiments compare 7 algorithms across 4 categories trained over 1,000-2,000 episodes. Click to expand each visualization:
 
-<details>
-<summary><b>Evidence of Learning</b></summary>
-
-![Learning Evidence](docs/final_plots/learning_evidence.png)
-
-**Key Metrics Demonstrating Learning:**
-
-| Algorithm | Reward Improvement | Variance Reduction | Trend Slope |
-|-----------|-------------------|-------------------|-------------|
-| DQN | +99.2% | -81.2% | +5.6/episode |
-| Double DQN | +101.1% | -85.7% | +5.9/episode |
-| Dueling DQN | +104.3% | -81.1% | +5.7/episode |
-
-*All agents show: (A) consistent reward improvement across training phases, (B) increasing cumulative rewards, (C) upward trending smoothed learning curves, and (D) decreasing variance indicating policy stabilization.*
-
-</details>
-
-<details>
-<summary><b>Learning Curves</b></summary>
-
-![Learning Curves](docs/final_plots/learning_curves_20251203_120832.png)
-
-*Learning curves with 95% confidence intervals showing episode rewards over 2000 training episodes for each algorithm.*
-
-</details>
-
-
-
-<details>
-<summary><b>🔍 Convergence Analysis</b></summary>
-
-![Convergence Analysis](docs/final_plots/convergence_analysis_20251203_120832.png)
-
-*Multi-panel analysis showing cumulative rewards, convergence rate, improvement velocity, and rolling variance.*
-
-</details>
-
-<details>
-<summary><b>📋 Summary Dashboard</b></summary>
-
-![Summary Dashboard](docs/final_plots/summary_dashboard_20251203_120832.png)
-
-*Comprehensive dashboard with learning curves, final performance comparison, stability metrics, and reward distributions.*
-
-</details>
 
 ## Getting Started with uv
 
