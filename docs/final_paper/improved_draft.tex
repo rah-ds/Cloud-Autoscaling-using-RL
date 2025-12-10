@@ -78,28 +78,21 @@ Traditional auto-scaling approaches rely on simple threshold-based rules, such a
 Reinforcement learning offers a promising alternative by framing auto-scaling as a sequential decision-making problem where an agent learns to associate environmental states with optimal scaling actions by maximizing cumulative rewards \cite{sutton2018}.
 
 \subsection{Research Objectives}
-This research investigates whether reinforcement learning methods can learn effective cloud auto-scaling policies. Our specific objectives are:
+We investigate RL-based auto-scaling policies with the following objectives:
 \begin{enumerate}
-    \item Design and implement a Gymnasium-compatible cloud auto-scaling simulator capturing essential dynamics including workload variability, capacity constraints, and cost-performance trade-offs
-    \item Develop state representations enabling effective learning, including utilization levels and \textbf{trend features} indicating demand direction---a key design choice motivated by Xu et al. \cite{xu2022} to enable anticipatory rather than purely reactive scaling
-    \item Compare seven algorithms across four categories: baseline policies, tabular RL, deep RL, and policy gradient methods
-    \item Evaluate performance across multiple workload environments (smooth, bursty, seasonal) to assess algorithm robustness
-    \item Assess convergence, SLA compliance, and cost efficiency across 1,000 training episodes
+    \item Implement a Gymnasium-compatible auto-scaling simulator with workload variability and cost-performance trade-offs
+    \item Develop state representations with \textbf{trend features} for anticipatory scaling \cite{xu2022}
+    \item Compare seven algorithms: baselines, tabular RL, deep RL, and policy gradient
+    \item Evaluate across smooth, bursty, and seasonal workload patterns
 \end{enumerate}
 
 \section{Related Work}
 
 \subsection{Traditional Auto-scaling Approaches}
-Early approaches to cloud auto-scaling focused on threshold-based policies combined with predictive models \cite{garcia2020}. These methods typically use time-series forecasting techniques such as ARIMA, exponential smoothing, or neural networks to predict future resource demands, then apply predefined rules to scale accordingly. While prediction can reduce reactive delays, the scaling logic remains static and cannot optimize for complex multi-objective trade-offs.
-
-Control theory approaches model auto-scaling as a feedback control problem, applying PID controllers or model predictive control to maintain desired performance levels. These methods provide theoretical stability guarantees but require accurate system models and careful parameter tuning.
+Traditional methods combine threshold-based policies with predictive models (ARIMA, neural networks) \cite{garcia2020}. While prediction reduces reactive delays, the scaling logic remains static. Control theory approaches (PID, MPC) provide stability guarantees but require accurate system models.
 
 \subsection{Reinforcement Learning for Resource Management}
-The application of reinforcement learning to cloud computing has gained significant attention in recent years. Q-Learning and SARSA have been successfully applied to workflow scheduling, demonstrating that RL agents can learn effective policies for task allocation and resource provisioning.
-
-Qiu et al. \cite{qiu2023} developed the AWARE system for RL-based auto-scaling in production, highlighting challenges including noisy workloads and safe exploration. Xu et al. \cite{xu2022} explored predictive auto-scaling via meta-RL, motivating the use of trend features to anticipate demand shifts---a design choice we incorporate in our state representation.
-
-Deep reinforcement learning approaches, including Deep Q-Networks (DQN) \cite{mnih2015} and variants like Double DQN \cite{hasselt2016} and Dueling DQN \cite{wang2016}, have been explored for auto-scaling in containerized and serverless environments. These methods can handle high-dimensional state spaces but require substantially more training data.
+RL for cloud computing has gained attention, with Q-Learning and SARSA applied to workflow scheduling. Qiu et al. \cite{qiu2023} developed AWARE for production auto-scaling; Xu et al. \cite{xu2022} explored meta-RL with trend features. Deep RL approaches (DQN, Double DQN, Dueling DQN) \cite{mnih2015,hasselt2016,wang2016} handle high-dimensional state spaces but require more training data.
 
 \section{System Architecture}
 
@@ -262,7 +255,50 @@ Churn penalty & $-2$ & Encourage stability \\
 \end{tabular}
 \end{table}
 
-The reward landscape creates distinct regions: a waste penalty zone below 20\% utilization, an optimal band between 40-80\% (with a sweet spot at 60-70\%), and severe SLA violation penalties above 90\%.
+The reward landscape creates distinct regions: a waste penalty zone below 20\% utilization, an optimal band between 40-80\% (with a sweet spot at 60-70\%), and severe SLA violation penalties above 90\%. Figure~\ref{fig:reward_landscape} visualizes these zones.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[scale=0.9, transform shape]
+    % Background zones
+    \fill[red!15] (0,0) rectangle (1.6,3);      % Waste zone (0-20%)
+    \fill[yellow!15] (1.6,0) rectangle (3.2,3); % Caution zone (20-40%)
+    \fill[green!20] (3.2,0) rectangle (6.4,3);  % Optimal zone (40-80%)
+    \fill[green!35] (4.8,0) rectangle (5.6,3);  % Sweet spot (60-70%)
+    \fill[yellow!15] (6.4,0) rectangle (7.2,3); % High zone (80-90%)
+    \fill[red!25] (7.2,0) rectangle (8,3);      % SLA violation zone (90-100%)
+    
+    % Axis
+    \draw[thick, ->] (0,0) -- (8.3,0) node[right, font=\small] {Utilization};
+    \draw[thick, ->] (0,0) -- (0,3.3) node[above, font=\small] {Reward};
+    
+    % Utilization labels
+    \foreach \x/\label in {0/0\%, 1.6/20\%, 3.2/40\%, 4.8/60\%, 5.6/70\%, 6.4/80\%, 7.2/90\%, 8/100\%} {
+        \draw (\x,0) -- (\x,-0.1);
+        \node[below, font=\tiny] at (\x,-0.1) {\label};
+    }
+    
+    % Reward curve (simplified)
+    \draw[thick, blue!70] (0,0.5) -- (1.6,1.2);       % Low: waste penalty
+    \draw[thick, blue!70] (1.6,1.2) -- (3.2,1.8);    % Transition
+    \draw[thick, blue!70] (3.2,1.8) -- (4.8,2.4);    % Optimal start
+    \draw[thick, blue!70] (4.8,2.4) -- (5.6,2.7);    % Sweet spot peak
+    \draw[thick, blue!70] (5.6,2.7) -- (6.4,2.4);    % Optimal end
+    \draw[thick, blue!70] (6.4,2.4) -- (7.2,1.5);    % High utilization
+    \draw[thick, blue!70] (7.2,1.5) -- (8,0.3);      % SLA violation crash
+    
+    % Zone labels
+    \node[font=\tiny, text=red!70, align=center] at (0.8,2.6) {Waste\\Zone};
+    \node[font=\tiny, text=green!50!black, align=center] at (5.2,0.5) {Optimal\\(Sweet Spot)};
+    \node[font=\tiny, text=red!70, align=center] at (7.6,2.6) {SLA\\Violation};
+    
+    % Annotations with braces
+    \draw[decorate, decoration={brace, amplitude=5pt, mirror}] (3.2,-0.5) -- (6.4,-0.5) 
+        node[midway, below=5pt, font=\scriptsize] {Target Band (+10 reward)};
+\end{tikzpicture}
+\caption{Reward Landscape: Underutilization incurs waste penalties (left), overutilization triggers severe SLA violation penalties (right), with an optimal operating band at 40-80\% utilization.}
+\label{fig:reward_landscape}
+\end{figure}
 
 \section{Algorithms}
 
@@ -320,19 +356,11 @@ This architecture improves learning efficiency in states where action choice mat
 
 \subsection{Policy Gradient Methods}
 
-\textbf{REINFORCE} \cite{williams1992} takes a fundamentally different approach by learning a stochastic policy $\pi_\theta(a|s)$ directly, rather than deriving actions from Q-values. The policy gradient theorem provides an unbiased estimate of the gradient:
-\begin{equation}
-\nabla_\theta J(\theta) = \mathbb{E}_{\pi_\theta} \left[ \sum_{t=0}^{T} \nabla_\theta \log \pi_\theta(a_t|s_t) \cdot G_t \right]
-\end{equation}
-where $G_t = \sum_{k=0}^{T-t} \gamma^k r_{t+k}$ is the discounted return from timestep $t$.
-
-To reduce variance, we use a baseline subtraction:
+\textbf{REINFORCE} \cite{williams1992} learns a stochastic policy $\pi_\theta(a|s)$ directly via the policy gradient:
 \begin{equation}
 \nabla_\theta J(\theta) = \mathbb{E}_{\pi_\theta} \left[ \sum_{t=0}^{T} \nabla_\theta \log \pi_\theta(a_t|s_t) \cdot (G_t - b(s_t)) \right]
 \end{equation}
-where $b(s_t)$ is a learned value function baseline. This variant, known as REINFORCE with baseline, significantly reduces gradient variance while remaining unbiased.
-
-\textbf{Key advantages for auto-scaling}: Unlike value-based methods that must explore to discover good actions, REINFORCE directly optimizes the probability of taking beneficial actions. This can lead to more conservative, stable policies that avoid extreme scaling decisions---precisely the behavior needed to minimize SLA violations.
+where $G_t$ is the discounted return and $b(s_t)$ is a learned baseline for variance reduction. Direct policy optimization leads to conservative, stable policies---ideal for minimizing SLA violations.
 
 \subsection{Network Architecture}
 All deep RL agents use a two-layer fully connected architecture with 128 hidden units per layer and ReLU activations. The key differences are:
@@ -412,7 +440,7 @@ Random & $-74,095$ & 676 & Baseline \\
 \end{tabular}
 \end{table}
 
-\textbf{Key Finding}: \textbf{REINFORCE achieves the fewest SLA violations (329), outperforming all other methods in service reliability.} Tabular methods (SARSA, Q-Learning) achieve competitive cumulative rewards, while deep RL methods significantly underperform in this domain. This surprising result warrants discussion.
+\textbf{Key Finding}: \textbf{REINFORCE achieves the fewest SLA violations (329)}, outperforming all other methods in service reliability. Tabular methods achieve the best cumulative rewards, while deep RL methods underperform.
 
 \subsection{Improvement Analysis}
 Table~\ref{tab:improvement} shows the percentage improvement over the random baseline.
@@ -463,21 +491,13 @@ Dueling DQN & $-68,000$ & $-48,000$ & $-35,000$ & $-27,586$ \\
 All learning algorithms show clear improvement trajectories, with tabular methods converging faster and to better final values than deep RL methods.
 
 \subsection{Learning Curves}
-Learning curves demonstrating clear evidence of learning across all RL methods are provided in Appendix~\ref{app:figures} (Figure~\ref{fig:learning_curves}). All RL agents show monotonic improvement, with tabular methods converging faster than deep RL variants. Figure~\ref{fig:algorithm_comparison} provides a direct visual comparison of final performance.
+Learning curves are provided in Appendix~\ref{app:figures} (Figures~\ref{fig:learning_curves}--\ref{fig:algorithm_comparison}). Tabular methods converge faster than deep RL variants.
 
 \subsection{SLA Violation Analysis}
-SLA violation comparisons across algorithms and workload patterns are shown in Figure~\ref{fig:sla_summary} (Appendix~\ref{app:figures}). REINFORCE achieves near-zero violations in smooth workloads and remains competitive in bursty/seasonal settings.
-
-The SLA violation analysis reveals distinct tradeoffs between reliability and reward across workload patterns. DQN achieves lower violation counts in bursty environments by scaling aggressively and maintaining overprovisioning headroom---a conservative strategy that sacrifices cost efficiency but shields against sudden spikes. Double DQN exhibits more reliable behavior in structured smooth and seasonal workloads, where reduced overestimation bias yields calibrated Q-values. Dueling DQN offers strong demand tracking but incurs the highest violations in volatile workloads.
-
-Critically, \textbf{REINFORCE emerges as the best candidate for SLA compliance}, delivering near-zero violations in smooth workloads and competitive counts in bursty/seasonal settings while maintaining favorable rewards. This suggests that directly optimizing returns with policy gradients can better internalize SLA penalties than value-based methods. However, even the best agents incur hundreds of violations in bursty scenarios, underscoring that current RL approaches remain sensitive to tail events.
+SLA violations by algorithm and workload are shown in Figure~\ref{fig:sla_summary} (Appendix~\ref{app:figures}). \textbf{REINFORCE achieves the fewest violations}, with near-zero counts in smooth workloads. DQN reduces violations in bursty environments through aggressive overprovisioning, while Double DQN balances reliability across structured workloads. Dueling DQN tracks demand well but incurs the highest violations in volatile conditions.
 
 \subsection{Capacity vs. Demand Dynamics}
-Figure~\ref{fig:capacity_demand} (Appendix~\ref{app:figures}) illustrates how different agents manage capacity relative to workload demand.
-
-Demand-capacity analysis reveals distinct tradeoffs between safety, cost efficiency, and pattern exploitation. For seasonal and smooth workloads, policy gradient methods track demand closely, maintaining capacity just above load for cost efficiency. In contrast, DQN consistently overprovisions across all profiles, maintaining capacity well above demand---this greatly reduces SLA violations but produces chronically low utilization and higher operating costs. Double DQN occupies a middle ground: it aligns capacity more tightly with demand on structured workloads while avoiding severe underprovisioning during bursts.
-
-The utilization traces corroborate these patterns: DQN spends most time below the target-utilization band but rarely crosses the SLA threshold; Double DQN achieves the most balanced utilization across environments; and REINFORCE stays near target while maintaining the lowest violation counts. \textbf{No single architecture optimizes both demand-capacity alignment and SLA safety}; the appropriate agent depends on whether a deployment prioritizes robustness to spikes (DQN), balanced efficiency (Double DQN), or maximum SLA compliance (REINFORCE).
+Figure~\ref{fig:capacity_demand} (Appendix~\ref{app:figures}) shows capacity management strategies. Policy gradient methods track demand closely for cost efficiency; DQN overprovisions for safety but sacrifices utilization; Double DQN balances both. \textbf{No single method optimizes both demand alignment and SLA safety}---the choice depends on deployment priorities.
 
 \subsection{Convergence Characteristics}
 Table~\ref{tab:convergence} summarizes convergence characteristics across all algorithms.
@@ -500,39 +520,19 @@ Dueling DQN & Slow ($\sim$700+ ep) & Low & Worst RL \\
 \end{tabular}
 \end{table}
 
-\subsection{Summary Dashboard}
-A comprehensive summary of all experimental results is presented in the appendix figures, showing learning curves (Figure~\ref{fig:learning_curves}), algorithm comparison (Figure~\ref{fig:algorithm_comparison}), and SLA violation distribution (Figure~\ref{fig:sla_summary}).
+\subsection{Summary}
+All experimental figures are in Appendix~\ref{app:figures}.
 
 \section{Discussion}
 
 \subsection{Why REINFORCE Achieves Fewest SLA Violations}
-The surprising result that REINFORCE outperforms all other methods in SLA compliance can be explained by its fundamentally different approach to learning:
-
-\textbf{1. Direct Policy Optimization}: Unlike value-based methods that must explore to discover good actions and can overfit to estimated Q-values, REINFORCE directly optimizes action probabilities. This leads to naturally smoother, more conservative policies.
-
-\textbf{2. Stochastic Policies}: REINFORCE learns a stochastic policy $\pi(a|s)$ that maintains some action diversity, avoiding the ``all-or-nothing'' behavior that value-based methods can exhibit near decision boundaries.
-
-\textbf{3. Monte Carlo Returns}: By using full-episode returns rather than bootstrapped estimates, REINFORCE captures the true long-term consequences of scaling decisions, which is crucial for SLA compliance.
-
-\textbf{4. Variance Reduction Baseline}: The learned value function baseline reduces gradient variance without introducing bias, leading to stable learning of conservative policies.
+REINFORCE outperforms value-based methods in SLA compliance due to: (1) \textbf{direct policy optimization} leading to smoother, conservative policies; (2) \textbf{stochastic policies} avoiding ``all-or-nothing'' behavior; (3) \textbf{Monte Carlo returns} capturing true long-term consequences; and (4) \textbf{variance reduction baseline} enabling stable learning.
 
 \subsection{Why Tabular Methods Outperform Deep RL}
-The surprising result that simpler tabular methods outperform deep RL variants can be explained by several factors:
-
-\textbf{1. State Space Size}: Our discretized state space has only $3 \times 5 \times 3 = 45$ states, which is easily covered by tabular methods. Deep networks may be overparameterized for this problem.
-
-\textbf{2. Sample Efficiency}: Q-tables can converge quickly with direct updates, while neural networks require many gradient steps and may struggle with the replay buffer dynamics.
-
-\textbf{3. Function Approximation Error}: Neural networks introduce approximation errors that can compound in the Bellman backup, leading to suboptimal policies.
-
-\textbf{4. Exploration-Exploitation}: Tabular methods with $\epsilon$-greedy exploration can systematically cover the small state space, while deep methods may get stuck in local optima.
+With only $3 \times 5 \times 3 = 45$ states, tabular methods excel because: (1) the state space is easily covered without function approximation; (2) Q-tables converge quickly with direct updates; (3) neural networks introduce compounding approximation errors; and (4) $\epsilon$-greedy exploration systematically covers the small state space.
 
 \subsection{Dueling DQN: High Potential but Volatile}
-Despite having the worst average performance among RL methods, Dueling DQN exhibits interesting characteristics that warrant discussion. The architecture's separation of value and advantage streams enables it to learn state values independently of action advantages, which theoretically improves learning efficiency in states where action choice matters less.
-
-In our experiments, Dueling DQN showed \textbf{high variance in performance}---some episodes achieved near-optimal rewards while others performed poorly. This volatility stems from the architecture's sensitivity to the advantage stream initialization and the difficulty of balancing the two streams during training. When the value stream accurately estimates state values, Dueling DQN can make precise scaling decisions; however, when the streams become misaligned, performance degrades significantly.
-
-For production deployments with extended training budgets and careful hyperparameter tuning, Dueling DQN may achieve competitive results. Its ability to separately model ``how good is this state'' versus ``which action is best'' aligns well with auto-scaling scenarios where some states (e.g., moderate utilization) are inherently better regardless of action choice.
+Dueling DQN showed \textbf{high variance}---some episodes achieved near-optimal rewards while others performed poorly. This volatility stems from sensitivity to advantage stream initialization. With extended training and careful tuning, Dueling DQN may achieve competitive results, as its value/advantage separation aligns well with auto-scaling scenarios.
 
 \subsection{Algorithm Selection Guidelines}
 Based on our findings, we propose the following decision framework:
@@ -545,54 +545,40 @@ Based on our findings, we propose the following decision framework:
 \end{itemize}
 
 \subsection{Practical Implications}
-For practitioners deploying RL-based auto-scaling:
-
 \begin{enumerate}
-    \item \textbf{Prioritize SLA compliance? Use REINFORCE}: When minimizing service disruptions is critical, REINFORCE with baseline achieves 2.4\% fewer SLA violations than the next best method
-    \item \textbf{Prioritize cost efficiency? Use tabular methods}: SARSA and Q-Learning achieve the best cumulative rewards while remaining interpretable
-    \item \textbf{Consider state representation carefully}: Adding the trend feature improved anticipatory behavior by 12\%
-    \item \textbf{Balance reward components}: Heavy SLA penalties are necessary to prevent dangerous over-utilization
-    \item \textbf{Avoid deep RL for small state spaces}: DQN variants underperformed despite their theoretical advantages
+    \item \textbf{SLA priority}: Use REINFORCE (2.4\% fewer violations)
+    \item \textbf{Cost priority}: Use SARSA/Q-Learning (best rewards, interpretable)
+    \item \textbf{State design}: Trend features improve anticipatory behavior by 12\%
+    \item \textbf{Small state spaces}: Avoid deep RL; tabular methods outperform
 \end{enumerate}
 
 \subsection{Limitations}
-This study has several limitations:
 \begin{itemize}
-    \item Simulated environment may not capture all real-world dynamics (network latency, VM startup time, etc.)
-    \item Deep RL hyperparameters may not be fully optimized for this domain
-    \item Single random seed for most experiments (multi-seed validation is planned for future work to strengthen statistical significance)
-    \item No consideration of multi-agent or multi-resource settings
+    \item Simulated environment may not capture all real-world dynamics
+    \item Single random seed (multi-seed validation planned for future work)
+    \item No multi-agent or multi-resource settings
 \end{itemize}
 
 \subsection{Reproducibility}
-All code, trained models, and experiment configurations are available at \url{https://github.com/rah-ds/Cloud-Autoscaling-using-RL}. Training was performed on Google Colab with NVIDIA A100 GPUs and locally on Apple M3 Max with Metal GPU acceleration. Random seeds, hyperparameters, and environment specifications are documented to enable replication of results.
+Code and models available at \url{https://github.com/rah-ds/Cloud-Autoscaling-using-RL}. Training performed on Google Colab (A100 GPUs) and Apple M3 Max.
 
 \subsection{Broader Impact}
-Efficient cloud auto-scaling has positive environmental implications. By reducing over-provisioning and maintaining optimal resource utilization, RL-based policies can decrease energy consumption in data centers. Given that cloud computing accounts for approximately 1\% of global electricity consumption, even modest improvements in resource efficiency can contribute to reduced carbon emissions and more sustainable computing infrastructure.
+RL-based auto-scaling can reduce data center energy consumption by minimizing over-provisioning, contributing to more sustainable cloud infrastructure.
 
 \section{Conclusion}
 
-This research demonstrates that reinforcement learning can learn effective cloud auto-scaling policies, achieving 77\% improvement over random baselines. Our key contributions are:
-
+RL achieves 77\% improvement over random baselines for cloud auto-scaling. Key findings:
 \begin{enumerate}
-    \item A Gymnasium-compatible auto-scaling simulator with a carefully designed multi-component reward function
-    \item Empirical comparison of seven algorithms across four categories (baselines, tabular RL, deep RL, and policy gradient)
-    \item Discovery that \textbf{REINFORCE with baseline achieves the fewest SLA violations} (329 vs.\ 337 for SARSA), making it the best choice when service reliability is paramount
-    \item Evidence that tabular RL methods achieve competitive cumulative rewards while deep RL underperforms in this domain
-    \item A trend feature design enabling anticipatory scaling behavior
+    \item \textbf{REINFORCE achieves fewest SLA violations} (329 vs.\ 337 for SARSA)
+    \item Tabular methods (SARSA, Q-Learning) achieve best cumulative rewards
+    \item Deep RL underperforms in this small state space domain
+    \item Trend features enable anticipatory scaling behavior
 \end{enumerate}
 
-The finding that policy gradient methods excel at SLA compliance has important practical implications: organizations prioritizing service reliability should consider REINFORCE, while those focused on overall cost-reward balance may prefer tabular methods like SARSA. Both approaches significantly outperform traditional threshold-based policies and deep Q-learning variants.
+Organizations prioritizing service reliability should use REINFORCE; those focused on cost-reward balance should prefer tabular methods. Both significantly outperform threshold-based policies.
 
 \subsection{Future Work}
-Future research directions include:
-\begin{itemize}
-    \item Multi-seed validation to establish statistical significance and confidence intervals
-    \item Exploring safe RL methods with explicit constraint satisfaction
-    \item Incorporating real cloud provider APIs for validation
-    \item Multi-resource auto-scaling (CPU, memory, network)
-    \item Transfer learning across different workload types
-\end{itemize}
+Future directions include multi-seed validation, safe RL with constraint satisfaction, real cloud API integration, and multi-resource auto-scaling.
 
 \section*{Acknowledgment}
 This work was conducted as part of the Reinforcement Learning course (DS 6050) at the University of Virginia School of Data Science. We thank our instructor for guidance on MDP formulation and algorithm design.

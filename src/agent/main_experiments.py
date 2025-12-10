@@ -563,13 +563,13 @@ def main():
     plot_comparison_bars(results1, "figures/experiment1_comparison.png")
 
     # Experiment 2: Exploration rates
-    results2 = experiment_2_exploration_rates(workload, n_episodes=500)
+    experiment_2_exploration_rates(workload, n_episodes=500)
 
     # Experiment 3: Episode lengths
-    results3 = experiment_3_episode_lengths(workload, episode_lengths=[500, 1000, 1500])
+    experiment_3_episode_lengths(workload, episode_lengths=[500, 1000, 1500])
 
     # Experiment 4: Learning rates
-    results4 = experiment_4_learning_rates(workload, n_episodes=1000)
+    experiment_4_learning_rates(workload, n_episodes=1000)
 
     # Calculate elapsed time
     elapsed_time = datetime.now() - start_time

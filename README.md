@@ -8,10 +8,71 @@
 
 A comprehensive reinforcement learning approach to cloud auto-scaling that learns optimal scaling policies through interaction with a simulated cloud environment.
 
+## Table of Contents
+
+- [Cloud Autoscaling using Reinforcement Learning](#cloud-autoscaling-using-reinforcement-learning)
+  - [Table of Contents](#table-of-contents)
+  - [Algorithms Implemented](#algorithms-implemented)
+    - [Expected Impact: RL vs. Traditional Methods](#expected-impact-rl-vs-traditional-methods)
+  - [Real Data Considered](#real-data-considered)
+  - [Getting Started with uv](#getting-started-with-uv)
+    - [Quick Start](#quick-start)
+    - [Manual Setup](#manual-setup)
+    - [Available Make Commands](#available-make-commands)
+  - [Important Links](#important-links)
+    - [Project Specific](#project-specific)
+    - [Course Specific](#course-specific)
+    - [Rivanna (UVA HPC)](#rivanna-uva-hpc)
+  - [Contributors](#contributors)
+    - [Project Team](#project-team)
+  - [Reproducibility](#reproducibility)
+
+<details>
+<summary><strong>Project Structure</strong> (click to expand)</summary>
+
+```bash
+Cloud-Autoscaling-using-RL/
+├── src/                      # Main source code
+│   ├── agent/                # RL agent implementations
+│   │   ├── dqn.py           # DQN, Double DQN, Dueling DQN
+│   │   ├── reinforce.py     # REINFORCE with baseline
+│   │   └── tabular.py       # Q-Learning, SARSA
+│   ├── gym_mmpp_env.py      # Gymnasium environment
+│   └── config.py            # Configuration management
+├── configs/                  # YAML configuration files
+│   ├── default.yaml         # Default hyperparameters
+│   └── quick.yaml           # Fast testing config
+├── scripts/                  # Training & analysis scripts
+│   ├── run_baselines.py     # Main training script
+│   ├── generate_figures.py  # Publication figures
+│   └── experiments/         # Archived experimental scripts
+├── notebooks/                # Jupyter notebooks for EDA
+├── docs/                     # Documentation & paper
+│   ├── final_paper/         # LaTeX paper source
+│   └── model_architectures.md
+├── artifacts/                # Generated outputs
+│   ├── logs/                # Training logs
+│   ├── models/              # Saved model checkpoints
+│   ├── plots/               # Generated figures
+│   └── results/             # JSON results files
+├── tests/                    # Unit tests
+└── data/raw/                 # Raw data (not committed)
+```
+
+**How to read this structure:**
+
+- `src/` contains all core library code (agents, environments, utilities)
+- `scripts/` are executable entry points for training and analysis
+- `configs/` holds YAML files controlling hyperparameters
+- `artifacts/` stores generated outputs (logs/results are tracked, models/plots are gitignored)
+- Files ending in `/` are directories
+
+</details>
 
 ## Algorithms Implemented
 
 We compare **7 algorithms** across **4 categories**:
+
 - **Baselines**: Random, Threshold
 - **Tabular RL**: SARSA, Q-Learning  
 - **Deep RL**: DQN, Double DQN, Dueling DQN
@@ -62,9 +123,6 @@ This project investigates whether these theoretical benefits translate to measur
 
   - May be used to test how well the RL agent generalizes beyond
     synthetic data
-
-
-
 
 ## Getting Started with uv
 
@@ -126,7 +184,6 @@ Cloud Autoscaling RL - Available Commands
   jupyter              Start Jupyter notebook
 ```
 
-
 ## Important Links
 
 ### Project Specific
@@ -153,8 +210,6 @@ Cloud Autoscaling RL - Available Commands
     3. Create a SLURM job script for long-running experiments
     4. Submit with: `sbatch your_script.sh`
     5. Monitor with: `squeue -u <your_id>`
-
-
 
 ## Contributors
 

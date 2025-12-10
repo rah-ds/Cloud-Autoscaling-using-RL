@@ -63,7 +63,9 @@ def create_objective(
         discount_factor = trial.suggest_categorical("discount_factor", [0.95, 0.99])
         batch_size = trial.suggest_categorical("batch_size", [32, 64, 128])
         hidden_dim = trial.suggest_categorical("hidden_dim", [64, 128, 256])
-        target_update_freq = trial.suggest_categorical("target_update_freq", [10, 50, 100])
+        target_update_freq = trial.suggest_categorical(
+            "target_update_freq", [10, 50, 100]
+        )
         epsilon_decay = trial.suggest_float("epsilon_decay", 0.99, 0.999)
 
         # Create environment
@@ -258,8 +260,12 @@ def print_optimization_results(study: optuna.Study) -> Dict[str, Any]:
         print(f"  {key}: {value}")
 
     print(f"\nTotal trials: {len(study.trials)}")
-    pruned_trials = [t for t in study.trials if t.state == optuna.trial.TrialState.PRUNED]
-    complete_trials = [t for t in study.trials if t.state == optuna.trial.TrialState.COMPLETE]
+    pruned_trials = [
+        t for t in study.trials if t.state == optuna.trial.TrialState.PRUNED
+    ]
+    complete_trials = [
+        t for t in study.trials if t.state == optuna.trial.TrialState.COMPLETE
+    ]
     print(f"  Completed: {len(complete_trials)}")
     print(f"  Pruned: {len(pruned_trials)}")
 
@@ -288,7 +294,9 @@ if __name__ == "__main__":
     parser.add_argument("--episodes", type=int, default=500, help="Episodes per trial")
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
     parser.add_argument("--no-wandb", action="store_true", help="Disable wandb logging")
-    parser.add_argument("--quick", action="store_true", help="Quick test (10 trials, 100 episodes)")
+    parser.add_argument(
+        "--quick", action="store_true", help="Quick test (10 trials, 100 episodes)"
+    )
     args = parser.parse_args()
 
     if args.quick:

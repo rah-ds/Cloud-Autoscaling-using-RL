@@ -1,0 +1,43 @@
+2025-12-03 15:15:16,555 - run_experiments - INFO - setup_logging:101 - Logging initialized. Log file: /Users/ryan.healy/DS_MSDS/Cloud-Autoscaling-using-RL/artifacts/logs/experiment_20251203_151516.log
+2025-12-03 15:15:16,555 - run_experiments - INFO - main:1118 - ============================================================
+2025-12-03 15:15:16,555 - run_experiments - INFO - main:1119 - Cloud Autoscaling RL Experiments
+2025-12-03 15:15:16,555 - run_experiments - INFO - main:1120 - ============================================================
+2025-12-03 15:15:16,555 - run_experiments - INFO - main:1121 - Configuration:
+2025-12-03 15:15:16,555 - run_experiments - INFO - main:1122 -   Episodes: 1000
+2025-12-03 15:15:16,555 - run_experiments - INFO - main:1123 -   Algorithm: reinforce
+2025-12-03 15:15:16,555 - run_experiments - INFO - main:1124 -   Seed: 42
+2025-12-03 15:15:16,555 - run_experiments - INFO - main:1125 -   Results directory: /Users/ryan.healy/DS_MSDS/Cloud-Autoscaling-using-RL/artifacts/results
+2025-12-03 15:15:16,555 - run_experiments - INFO - main:1126 -   Plots directory: /Users/ryan.healy/DS_MSDS/Cloud-Autoscaling-using-RL/artifacts/plots
+2025-12-03 15:15:16,555 - run_experiments - INFO - main:1127 -   Quick mode: False
+2025-12-03 15:15:16,555 - run_experiments - INFO - main:1128 -   Log level: INFO
+2025-12-03 15:15:16,555 - run_experiments - INFO - main:1129 -   Wandb logging: enabled
+2025-12-03 15:15:16,555 - run_experiments - INFO - main:1134 - Generating synthetic workload data...
+2025-12-03 15:15:16,556 - run_experiments - INFO - main:1141 - Environment created: state_space=MultiDiscrete([3 5 3]), action_space=Discrete(3)
+2025-12-03 15:15:16,556 - run_experiments - INFO - train_reinforce_agent:825 - ==================================================
+2025-12-03 15:15:16,556 - run_experiments - INFO - train_reinforce_agent:826 - Training REINFORCE Agent (Policy Gradient)
+2025-12-03 15:15:16,556 - run_experiments - INFO - train_reinforce_agent:827 -   Episodes: 1000
+2025-12-03 15:15:16,556 - run_experiments - INFO - train_reinforce_agent:828 -   Learning rate: 0.001
+2025-12-03 15:15:16,556 - run_experiments - INFO - train_reinforce_agent:829 -   Discount factor: 0.99
+2025-12-03 15:15:16,556 - run_experiments - INFO - train_reinforce_agent:830 -   Use baseline: True
+2025-12-03 15:15:34,677 - run_experiments - INFO - train_reinforce_agent:918 -   Episode 100/1000: avg_reward=-2570.32, avg_sla=0.00, avg_loss=4.03
+2025-12-03 15:15:50,028 - run_experiments - INFO - train_reinforce_agent:918 -   Episode 200/1000: avg_reward=-23.42, avg_sla=0.00, avg_loss=0.82
+2025-12-03 15:16:05,715 - run_experiments - INFO - train_reinforce_agent:918 -   Episode 300/1000: avg_reward=719.65, avg_sla=0.00, avg_loss=-14.01
+2025-12-03 15:16:21,084 - run_experiments - INFO - train_reinforce_agent:918 -   Episode 400/1000: avg_reward=718.29, avg_sla=0.00, avg_loss=-6.11
+2025-12-03 15:16:36,488 - run_experiments - INFO - train_reinforce_agent:918 -   Episode 500/1000: avg_reward=604.57, avg_sla=0.00, avg_loss=-4.85
+2025-12-03 15:16:52,005 - run_experiments - INFO - train_reinforce_agent:918 -   Episode 600/1000: avg_reward=525.65, avg_sla=0.00, avg_loss=-4.69
+2025-12-03 15:17:07,574 - run_experiments - INFO - train_reinforce_agent:918 -   Episode 700/1000: avg_reward=506.49, avg_sla=0.00, avg_loss=1.17
+2025-12-03 15:17:23,269 - run_experiments - INFO - train_reinforce_agent:918 -   Episode 800/1000: avg_reward=987.24, avg_sla=0.00, avg_loss=-1.21
+2025-12-03 15:17:38,759 - run_experiments - INFO - train_reinforce_agent:918 -   Episode 900/1000: avg_reward=924.04, avg_sla=0.00, avg_loss=2.43
+2025-12-03 15:17:54,475 - run_experiments - INFO - train_reinforce_agent:918 -   Episode 1000/1000: avg_reward=641.68, avg_sla=0.00, avg_loss=4.02
+2025-12-03 15:17:54,476 - run_experiments - INFO - train_reinforce_agent:931 - REINFORCE training complete: final_reward=641.68, final_sla=0.00
+2025-12-03 15:17:55,268 - run_experiments - INFO - save_model:152 - Model saved to /Users/ryan.healy/DS_MSDS/Cloud-Autoscaling-using-RL/artifacts/models/reinforce_1000ep_20251203.pkl
+2025-12-03 15:17:55,268 - run_experiments - INFO - save_results:965 - ==================================================
+2025-12-03 15:17:55,268 - run_experiments - INFO - save_results:966 - Saving experiment results
+2025-12-03 15:17:55,270 - run_experiments - INFO - save_results:988 - JSON results saved to /Users/ryan.healy/DS_MSDS/Cloud-Autoscaling-using-RL/artifacts/results/results_20251203_151755.json
+2025-12-03 15:17:55,270 - run_experiments - INFO - main:1219 - ============================================================
+2025-12-03 15:17:55,270 - run_experiments - INFO - main:1220 - EXPERIMENT SUMMARY
+2025-12-03 15:17:55,270 - run_experiments - INFO - main:1221 - ============================================================
+2025-12-03 15:17:55,270 - run_experiments - INFO - main:1257 - REINFORCE: reward=641.68, sla=0.00
+2025-12-03 15:17:55,270 - run_experiments - INFO - main:1261 - ============================================================
+2025-12-03 15:17:55,270 - run_experiments - INFO - main:1262 - Total runtime: 0:02:38.714372
+2025-12-03 15:17:55,270 - run_experiments - INFO - main:1263 - Experiments complete!

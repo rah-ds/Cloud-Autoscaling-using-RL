@@ -1,0 +1,37 @@
+2025-12-03 15:22:21,761 - run_experiments - INFO - setup_logging:107 - Logging initialized. Log file: /Users/ryan.healy/DS_MSDS/Cloud-Autoscaling-using-RL/artifacts/logs/experiment_20251203_152221.log
+2025-12-03 15:22:21,761 - run_experiments - INFO - main:1143 - ============================================================
+2025-12-03 15:22:21,761 - run_experiments - INFO - main:1144 - Cloud Autoscaling RL Experiments
+2025-12-03 15:22:21,761 - run_experiments - INFO - main:1145 - ============================================================
+2025-12-03 15:22:21,761 - run_experiments - INFO - main:1146 - Configuration:
+2025-12-03 15:22:21,761 - run_experiments - INFO - main:1147 -   Episodes: 100
+2025-12-03 15:22:21,761 - run_experiments - INFO - main:1148 -   Algorithm: reinforce
+2025-12-03 15:22:21,761 - run_experiments - INFO - main:1149 -   Workload: bursty
+2025-12-03 15:22:21,761 - run_experiments - INFO - main:1150 -   Seed: 42
+2025-12-03 15:22:21,761 - run_experiments - INFO - main:1151 -   Results directory: /Users/ryan.healy/DS_MSDS/Cloud-Autoscaling-using-RL/artifacts/results
+2025-12-03 15:22:21,761 - run_experiments - INFO - main:1152 -   Plots directory: /Users/ryan.healy/DS_MSDS/Cloud-Autoscaling-using-RL/artifacts/plots
+2025-12-03 15:22:21,761 - run_experiments - INFO - main:1153 -   Quick mode: True
+2025-12-03 15:22:21,761 - run_experiments - INFO - main:1154 -   Log level: INFO
+2025-12-03 15:22:21,762 - run_experiments - INFO - main:1155 -   Wandb logging: disabled
+2025-12-03 15:22:21,762 - run_experiments - INFO - main:1160 - Generating synthetic workload data...
+2025-12-03 15:22:21,762 - run_experiments - INFO - main:1171 - Applied 'bursty' workload transformation
+2025-12-03 15:22:21,762 - run_experiments - INFO - main:1178 - Environment config: cooldown=2, sla_weight=15.0
+2025-12-03 15:22:21,763 - run_experiments - INFO - main:1181 - Environment created: state_space=MultiDiscrete([3 5 3]), action_space=Discrete(3)
+2025-12-03 15:22:21,763 - run_experiments - INFO - train_reinforce_agent:841 - ==================================================
+2025-12-03 15:22:21,763 - run_experiments - INFO - train_reinforce_agent:842 - Training REINFORCE Agent (Policy Gradient)
+2025-12-03 15:22:21,763 - run_experiments - INFO - train_reinforce_agent:843 -   Episodes: 100
+2025-12-03 15:22:21,763 - run_experiments - INFO - train_reinforce_agent:844 -   Learning rate: 0.001
+2025-12-03 15:22:21,763 - run_experiments - INFO - train_reinforce_agent:845 -   Discount factor: 0.99
+2025-12-03 15:22:21,763 - run_experiments - INFO - train_reinforce_agent:846 -   Use baseline: True
+2025-12-03 15:22:38,307 - run_experiments - INFO - train_reinforce_agent:934 -   Episode 100/100: avg_reward=-19182.26, avg_sla=0.00, avg_loss=0.41
+2025-12-03 15:22:38,307 - run_experiments - INFO - train_reinforce_agent:947 - REINFORCE training complete: final_reward=-19182.26, final_sla=0.00
+2025-12-03 15:22:38,310 - run_experiments - INFO - save_model:168 - Model saved to /Users/ryan.healy/DS_MSDS/Cloud-Autoscaling-using-RL/artifacts/models/reinforce_bursty_100ep_20251203.pkl
+2025-12-03 15:22:38,310 - run_experiments - INFO - save_results:981 - ==================================================
+2025-12-03 15:22:38,310 - run_experiments - INFO - save_results:982 - Saving experiment results
+2025-12-03 15:22:38,310 - run_experiments - INFO - save_results:1004 - JSON results saved to /Users/ryan.healy/DS_MSDS/Cloud-Autoscaling-using-RL/artifacts/results/results_20251203_152238.json
+2025-12-03 15:22:38,310 - run_experiments - INFO - main:1259 - ============================================================
+2025-12-03 15:22:38,310 - run_experiments - INFO - main:1260 - EXPERIMENT SUMMARY
+2025-12-03 15:22:38,310 - run_experiments - INFO - main:1261 - ============================================================
+2025-12-03 15:22:38,310 - run_experiments - INFO - main:1297 - REINFORCE: reward=-19182.26, sla=0.00
+2025-12-03 15:22:38,310 - run_experiments - INFO - main:1301 - ============================================================
+2025-12-03 15:22:38,310 - run_experiments - INFO - main:1302 - Total runtime: 0:00:16.547736
+2025-12-03 15:22:38,311 - run_experiments - INFO - main:1303 - Experiments complete!

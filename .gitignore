@@ -20,8 +20,10 @@ data/raw/
 data/interim/
 
 # Artifacts (generated outputs)
-artifacts/logs/
-artifacts/results/
+# show the the logs and results to show runs
+!artifacts/logs/
+!artifacts/results/
+
 artifacts/models/
 # Keep demo plots and sample outputs
 !artifacts/plots/.gitkeep

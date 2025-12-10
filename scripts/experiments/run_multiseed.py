@@ -351,7 +351,7 @@ def create_comparison_plot(results: dict[str, dict], output_path: Path) -> None:
 
     agents = sorted(results.keys(), key=lambda x: results[x]["mean"], reverse=True)
     means = [results[a]["mean"] for a in agents]
-    stds = [results[a]["std"] for a in agents]
+    [results[a]["std"] for a in agents]
 
     # Calculate CI half-widths
     ci_errors = []

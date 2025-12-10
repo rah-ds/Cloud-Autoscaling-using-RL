@@ -7,8 +7,7 @@ environments to test agent generalization across workload types.
 Based on the configurations from the Evaluation_Results notebook.
 """
 
-from dataclasses import dataclass, field
-from typing import Optional
+from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 
@@ -17,7 +16,7 @@ import pandas as pd
 class AutoScalingEnvConfig:
     """
     Configuration for the AutoScaling environment.
-    
+
     Attributes:
         initial_capacity: Starting number of machines/instances
         target_utilization: Desired utilization level (0-1)
@@ -31,6 +30,7 @@ class AutoScalingEnvConfig:
         util_weight: Weight for utilization penalty in reward
         sla_weight: Weight for SLA violations in reward
     """
+
     initial_capacity: int = 10
     target_utilization: float = 0.6
     sla_threshold: float = 0.8
@@ -100,6 +100,7 @@ SEASONAL_CONFIG = AutoScalingEnvConfig(
 # Workload transformation functions
 # ============================================================================
 
+
 def make_bursty_workload(
     df: pd.DataFrame,
     spike_prob: float = 0.02,
@@ -110,7 +111,7 @@ def make_bursty_workload(
 ) -> pd.DataFrame:
     """
     Transform a smooth workload into a bursty one by injecting random spikes.
-    
+
     Args:
         df: DataFrame with CPU utilization data
         spike_prob: Probability of starting a spike at each timestep (~2%)
@@ -118,7 +119,7 @@ def make_bursty_workload(
         spike_mult_range: (min, max) multiplier for spike intensity
         random_state: Random seed for reproducibility
         cpu_column: Name of the CPU utilization column
-        
+
     Returns:
         DataFrame with bursty workload pattern
     """
@@ -156,7 +157,7 @@ def make_seasonal_workload(
 ) -> pd.DataFrame:
     """
     Transform a workload into a seasonal pattern with periodic oscillations.
-    
+
     Args:
         df: DataFrame with CPU utilization data
         period_steps: Length of one "day" cycle in timesteps
@@ -164,7 +165,7 @@ def make_seasonal_workload(
         noise_std_factor: How strong the noise is relative to baseline
         random_state: Random seed for reproducibility
         cpu_column: Name of the CPU utilization column
-        
+
     Returns:
         DataFrame with seasonal workload pattern
     """
@@ -202,20 +203,18 @@ def make_smooth_workload(
 ) -> pd.DataFrame:
     """
     Apply smoothing to reduce short-term variance while preserving trends.
-    
+
     Args:
         df: DataFrame with CPU utilization data
         window: Rolling window size for smoothing
         cpu_column: Name of the CPU utilization column
-        
+
     Returns:
         DataFrame with smoothed workload pattern
     """
     df_smooth = df.copy()
     df_smooth[cpu_column] = (
-        df_smooth[cpu_column]
-        .rolling(window=window, min_periods=1, center=True)
-        .mean()
+        df_smooth[cpu_column].rolling(window=window, min_periods=1, center=True).mean()
     )
     return df_smooth
 
@@ -240,33 +239,37 @@ WORKLOAD_TRANSFORMS = {
 def get_config(name: str) -> AutoScalingEnvConfig:
     """
     Get a predefined environment configuration by name.
-    
+
     Args:
         name: One of 'smooth', 'bursty', 'seasonal'
-        
+
     Returns:
         AutoScalingEnvConfig for the specified environment type
     """
     if name.lower() not in ENV_CONFIGS:
-        raise ValueError(f"Unknown config name: {name}. Choose from {list(ENV_CONFIGS.keys())}")
+        raise ValueError(
+            f"Unknown config name: {name}. Choose from {list(ENV_CONFIGS.keys())}"
+        )
     return ENV_CONFIGS[name.lower()]
 
 
 def transform_workload(df: pd.DataFrame, workload_type: str, **kwargs) -> pd.DataFrame:
     """
     Transform a DataFrame's workload pattern.
-    
+
     Args:
         df: DataFrame with CPU utilization data
         workload_type: One of 'smooth', 'bursty', 'seasonal'
         **kwargs: Additional arguments passed to the transform function
-        
+
     Returns:
         Transformed DataFrame
     """
     if workload_type.lower() not in WORKLOAD_TRANSFORMS:
-        raise ValueError(f"Unknown workload type: {workload_type}. Choose from {list(WORKLOAD_TRANSFORMS.keys())}")
-    
+        raise ValueError(
+            f"Unknown workload type: {workload_type}. Choose from {list(WORKLOAD_TRANSFORMS.keys())}"
+        )
+
     transform_fn = WORKLOAD_TRANSFORMS[workload_type.lower()]
     return transform_fn(df, **kwargs)
 
@@ -279,25 +282,25 @@ if __name__ == "__main__":
     # Example: Create sample workload and transform it
     print("Environment Configurations:")
     print("=" * 50)
-    
+
     for name, config in ENV_CONFIGS.items():
         print(f"\n{name.upper()} Config:")
         print(f"  cooldown_period: {config.cooldown_period}")
         print(f"  sla_weight: {config.sla_weight}")
         print(f"  target_utilization: {config.target_utilization}")
-    
+
     # Create sample data
     np.random.seed(42)
     n_samples = 1000
     t = np.linspace(0, 10 * np.pi, n_samples)
     base_cpu = 0.4 + 0.2 * np.sin(t) + 0.05 * np.random.randn(n_samples)
     base_cpu = np.clip(base_cpu, 0, 1)
-    
+
     df_base = pd.DataFrame({"avg_cpu": base_cpu})
-    
+
     print("\n\nWorkload Transformations:")
     print("=" * 50)
-    
+
     for name in WORKLOAD_TRANSFORMS.keys():
         df_transformed = transform_workload(df_base, name)
         cpu = df_transformed["avg_cpu"]

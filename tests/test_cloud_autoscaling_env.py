@@ -149,8 +149,8 @@ class TestCloudAutoscalingEnv:
 
     def test_info_contains_per_step_sla_violation_key(self, env):
         """Test info dict contains 'sla_violation' (singular) for per-step tracking.
-        
-        This test was added to catch the bug where training code expected 
+
+        This test was added to catch the bug where training code expected
         'sla_violation' but environment only provided 'sla_violations'.
         """
         env.reset()
@@ -163,27 +163,29 @@ class TestCloudAutoscalingEnv:
     def test_sla_violation_is_per_step_flag(self, env):
         """Test that sla_violation is 0 or 1 (per-step flag, not cumulative)."""
         env.reset()
-        
+
         for _ in range(10):
             _, _, terminated, _, info = env.step(1)
             if terminated:
                 break
             # Per-step flag must be 0 or 1
-            assert info["sla_violation"] in [0, 1], \
+            assert info["sla_violation"] in [0, 1], (
                 f"sla_violation should be 0 or 1, got {info['sla_violation']}"
+            )
 
     def test_sla_violations_is_cumulative(self, env):
         """Test that sla_violations is cumulative count (non-decreasing)."""
         env.reset()
-        
+
         prev_violations = 0
         for _ in range(20):
             _, _, terminated, _, info = env.step(1)
             if terminated:
                 break
             # Cumulative count must be non-decreasing
-            assert info["sla_violations"] >= prev_violations, \
+            assert info["sla_violations"] >= prev_violations, (
                 f"sla_violations should be non-decreasing: {prev_violations} -> {info['sla_violations']}"
+            )
             prev_violations = info["sla_violations"]
 
     def test_sla_violation_triggers_on_high_utilization(self):
@@ -192,72 +194,85 @@ class TestCloudAutoscalingEnv:
         high_demand_workload = np.array([100.0] * 50)  # High demand
         env = CloudAutoscalingEnv(workload_data=high_demand_workload, seed=42)
         env.reset()
-        
+
         # Force low capacity to trigger SLA violation
         env.current_capacity = 1  # Minimum capacity
-        
+
         # Take a step - utilization will be high
         _, _, _, _, info = env.step(1)  # Hold
-        
+
         utilization = info["utilization"]
         sla_threshold = env.sla_violation_threshold
-        
+
         if utilization >= sla_threshold:
-            assert info["sla_violation"] == 1, \
+            assert info["sla_violation"] == 1, (
                 f"Expected sla_violation=1 when utilization={utilization:.2%} >= threshold={sla_threshold:.2%}"
+            )
         else:
-            assert info["sla_violation"] == 0, \
+            assert info["sla_violation"] == 0, (
                 f"Expected sla_violation=0 when utilization={utilization:.2%} < threshold={sla_threshold:.2%}"
+            )
 
     def test_sla_violation_count_matches_step_flags(self):
         """Test that cumulative sla_violations equals sum of per-step sla_violation flags."""
         # Use variable workload to trigger some violations
-        workload = np.concatenate([
-            np.full(20, 30),   # Low demand
-            np.full(20, 95),   # High demand - should cause violations
-            np.full(20, 40),   # Medium demand
-        ])
+        workload = np.concatenate(
+            [
+                np.full(20, 30),  # Low demand
+                np.full(20, 95),  # High demand - should cause violations
+                np.full(20, 40),  # Medium demand
+            ]
+        )
         env = CloudAutoscalingEnv(workload_data=workload, seed=42)
         env.reset()
-        
+
         step_violations_sum = 0
         cumulative_violations = 0
-        
+
         for _ in range(55):
             _, _, terminated, _, info = env.step(1)  # Hold to let violations happen
             if terminated:
                 break
             step_violations_sum += info["sla_violation"]
             cumulative_violations = info["sla_violations"]
-        
-        assert step_violations_sum == cumulative_violations, \
+
+        assert step_violations_sum == cumulative_violations, (
             f"Sum of per-step flags ({step_violations_sum}) != cumulative count ({cumulative_violations})"
+        )
 
     def test_info_keys_consistency_across_steps(self, env):
         """Test that info dict has consistent keys across all steps."""
         env.reset()
-        
-        expected_keys = {"utilization", "demand", "capacity", "total_cost", 
-                        "sla_violation", "sla_violations", "capacity_changes"}
-        
+
+        expected_keys = {
+            "utilization",
+            "demand",
+            "capacity",
+            "total_cost",
+            "sla_violation",
+            "sla_violations",
+            "capacity_changes",
+        }
+
         for _ in range(20):
             _, _, terminated, _, info = env.step(1)
             if terminated:
                 break
-            
+
             missing_keys = expected_keys - set(info.keys())
             assert not missing_keys, f"Missing keys in step info: {missing_keys}"
 
     def test_capacity_changes_tracking(self, env):
         """Test that capacity_changes is tracked correctly."""
         env.reset()
-        
+
         # Do some scaling actions
         env.step(2)  # Scale up
         env.step(2)  # Scale up
         env.step(1)  # Hold (no change)
         _, _, _, _, info = env.step(0)  # Scale down
-        
+
         # Should have 3 capacity changes (2 up + 1 down, hold doesn't count)
-        assert info["capacity_changes"] == 3, \
+        assert info["capacity_changes"] == 3, (
             f"Expected 3 capacity changes, got {info['capacity_changes']}"
+        )

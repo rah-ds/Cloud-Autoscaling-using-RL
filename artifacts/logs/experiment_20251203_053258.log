@@ -1,0 +1,33 @@
+2025-12-03 05:32:58,124 - run_experiments - INFO - setup_logging:95 - Logging initialized. Log file: /Users/ryan.healy/DS_MSDS/Cloud-Autoscaling-using-RL/artifacts/logs/experiment_20251203_053258.log
+2025-12-03 05:32:58,124 - run_experiments - INFO - main:776 - ============================================================
+2025-12-03 05:32:58,124 - run_experiments - INFO - main:777 - Cloud Autoscaling RL Experiments
+2025-12-03 05:32:58,124 - run_experiments - INFO - main:778 - ============================================================
+2025-12-03 05:32:58,124 - run_experiments - INFO - main:779 - Configuration:
+2025-12-03 05:32:58,124 - run_experiments - INFO - main:780 -   Episodes: 100
+2025-12-03 05:32:58,124 - run_experiments - INFO - main:781 -   Algorithm: deep
+2025-12-03 05:32:58,125 - run_experiments - INFO - main:782 -   Seed: 42
+2025-12-03 05:32:58,125 - run_experiments - INFO - main:783 -   Results directory: /Users/ryan.healy/DS_MSDS/Cloud-Autoscaling-using-RL/artifacts/results
+2025-12-03 05:32:58,125 - run_experiments - INFO - main:784 -   Plots directory: /Users/ryan.healy/DS_MSDS/Cloud-Autoscaling-using-RL/artifacts/plots
+2025-12-03 05:32:58,125 - run_experiments - INFO - main:785 -   Quick mode: True
+2025-12-03 05:32:58,125 - run_experiments - INFO - main:786 -   Log level: INFO
+2025-12-03 05:32:58,125 - run_experiments - INFO - main:787 -   Wandb logging: enabled
+2025-12-03 05:32:58,125 - run_experiments - INFO - main:792 - Generating synthetic workload data...
+2025-12-03 05:32:58,125 - run_experiments - INFO - main:799 - Environment created: state_space=MultiDiscrete([3 5 3]), action_space=Discrete(3)
+2025-12-03 05:32:58,125 - run_experiments - INFO - train_dqn_agent:496 - ==================================================
+2025-12-03 05:32:58,125 - run_experiments - INFO - train_dqn_agent:497 - Training DQN Agent
+2025-12-03 05:32:58,125 - run_experiments - INFO - train_dqn_agent:498 -   Episodes: 100
+2025-12-03 05:32:58,125 - run_experiments - INFO - train_dqn_agent:499 -   Learning rate: 0.001
+2025-12-03 05:32:58,125 - run_experiments - INFO - train_dqn_agent:500 -   Discount factor: 0.99
+2025-12-03 05:32:58,125 - run_experiments - INFO - train_dqn_agent:501 -   Initial epsilon: 1.0
+2025-12-03 05:32:58,125 - run_experiments - INFO - train_dqn_agent:502 -   Epsilon decay: 0.995
+2025-12-03 05:32:58,125 - run_experiments - INFO - train_dqn_agent:503 -   Seed: 42
+2025-12-03 05:37:36,971 - run_experiments - INFO - train_dqn_agent:594 -   Episode 100/100: avg_reward=-26672.04, avg_sla=0.00, eps=0.606
+2025-12-03 05:37:36,972 - run_experiments - INFO - train_dqn_agent:606 - DQN training complete: final_reward=-26672.04, final_sla=0.00
+2025-12-03 05:37:37,644 - run_experiments - INFO - train_dqn_agent:496 - ==================================================
+2025-12-03 05:37:37,644 - run_experiments - INFO - train_dqn_agent:497 - Training DOUBLE_DQN Agent
+2025-12-03 05:37:37,645 - run_experiments - INFO - train_dqn_agent:498 -   Episodes: 100
+2025-12-03 05:37:37,645 - run_experiments - INFO - train_dqn_agent:499 -   Learning rate: 0.001
+2025-12-03 05:37:37,646 - run_experiments - INFO - train_dqn_agent:500 -   Discount factor: 0.99
+2025-12-03 05:37:37,646 - run_experiments - INFO - train_dqn_agent:501 -   Initial epsilon: 1.0
+2025-12-03 05:37:37,646 - run_experiments - INFO - train_dqn_agent:502 -   Epsilon decay: 0.995
+2025-12-03 05:37:37,646 - run_experiments - INFO - train_dqn_agent:503 -   Seed: 42

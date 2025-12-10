@@ -141,7 +141,7 @@ def update_report(report_path: Path, results: dict, ablations: dict) -> None:
     # Update ablation tables if available
     for ablation_name, ablation_data in ablations.items():
         if "learning_rate" in ablation_name:
-            lr_table = generate_ablation_table(ablation_data, "learning_rate")
+            generate_ablation_table(ablation_data, "learning_rate")
             # Find best LR
             results_list = ablation_data.get("results", [])
             if results_list:

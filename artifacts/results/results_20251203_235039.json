@@ -1,0 +1,14 @@
+{
+  "baselines": {
+    "random": {
+      "mean_reward": "-74095.47",
+      "std_reward": "6717.7305",
+      "mean_sla_violations": 676.26
+    },
+    "threshold": {
+      "mean_reward": "-18158.12",
+      "std_reward": "0.001953125",
+      "mean_sla_violations": 365.0
+    }
+  }
+}

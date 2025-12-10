@@ -53,8 +53,6 @@ from agent.reinforce_agent import (
 from env_configs import (
     get_config,
     transform_workload,
-    ENV_CONFIGS,
-    AutoScalingEnvConfig,
 )
 from wandb_utils import (
     init_wandb,
@@ -123,7 +121,9 @@ MODELS_DIR = PROJECT_ROOT / "artifacts" / "models"
 WORKLOAD_TYPE = "smooth"
 
 
-def get_model_path(algorithm: str, n_episodes: int, date: str = None, workload: str = None) -> Path:
+def get_model_path(
+    algorithm: str, n_episodes: int, date: str = None, workload: str = None
+) -> Path:
     """Generate model file path with algorithm, episodes, date, and optional workload type."""
     if date is None:
         date = datetime.now().strftime("%Y%m%d")
@@ -132,7 +132,9 @@ def get_model_path(algorithm: str, n_episodes: int, date: str = None, workload: 
     return MODELS_DIR / f"{algorithm}_{n_episodes}ep_{date}.pkl"
 
 
-def find_existing_model(algorithm: str, n_episodes: int, workload: str = None) -> Optional[Path]:
+def find_existing_model(
+    algorithm: str, n_episodes: int, workload: str = None
+) -> Optional[Path]:
     """Find an existing model file for the given algorithm and episode count."""
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
     # Look for any model with matching algorithm and episodes (any date)
@@ -147,12 +149,18 @@ def find_existing_model(algorithm: str, n_episodes: int, workload: str = None) -
     return None
 
 
-def save_model(agent: Any, algorithm: str, n_episodes: int, metadata: Dict = None, workload: str = None) -> Path:
+def save_model(
+    agent: Any,
+    algorithm: str,
+    n_episodes: int,
+    metadata: Dict = None,
+    workload: str = None,
+) -> Path:
     """Save a trained agent to disk."""
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
     wl = workload or WORKLOAD_TYPE
     model_path = get_model_path(algorithm, n_episodes, workload=wl)
-    
+
     save_data = {
         "agent": agent,
         "algorithm": algorithm,
@@ -161,10 +169,10 @@ def save_model(agent: Any, algorithm: str, n_episodes: int, metadata: Dict = Non
         "saved_at": datetime.now().isoformat(),
         "metadata": metadata or {},
     }
-    
+
     with open(model_path, "wb") as f:
         pickle.dump(save_data, f)
-    
+
     logger.info(f"Model saved to {model_path}")
     return model_path
 
@@ -173,7 +181,7 @@ def load_model(model_path: Path) -> Tuple[Any, Dict]:
     """Load a trained agent from disk."""
     with open(model_path, "rb") as f:
         save_data = pickle.load(f)
-    
+
     logger.info(f"Model loaded from {model_path}")
     return save_data["agent"], save_data
 
@@ -288,7 +296,9 @@ def train_q_learning_agent(
     global USE_WANDB
 
     # Check for existing model
-    existing_model = find_existing_model("q_learning", n_episodes, workload=WORKLOAD_TYPE)
+    existing_model = find_existing_model(
+        "q_learning", n_episodes, workload=WORKLOAD_TYPE
+    )
     if skip_if_exists and existing_model:
         logger.info("=" * 50)
         logger.info(f"Found existing Q-Learning model: {existing_model}")
@@ -803,10 +813,10 @@ def train_reinforce_agent(
 ) -> Dict[str, Any]:
     """
     Train REINFORCE (Policy Gradient) agent and return metrics.
-    
+
     REINFORCE is a Monte Carlo policy gradient method that learns
     a stochastic policy directly, unlike DQN which learns Q-values.
-    
+
     Args:
         env: The environment to train on
         n_episodes: Number of training episodes
@@ -816,7 +826,7 @@ def train_reinforce_agent(
         seed: Random seed
         skip_if_exists: Skip training if model exists
         use_baseline: Whether to use baseline for variance reduction
-    
+
     Returns:
         Dictionary with training results
     """
@@ -912,7 +922,7 @@ def train_reinforce_agent(
 
         # Update policy at end of episode (Monte Carlo)
         loss = agent.update()
-        
+
         episode_rewards.append(total_reward)
         episode_sla.append(sla_violations)
         episode_losses.append(loss)
@@ -1162,20 +1172,27 @@ def main():
     logger.debug(
         f"Base workload stats: min={workload.min():.2f}, max={workload.max():.2f}, mean={workload.mean():.2f}"
     )
-    
+
     # Apply workload transformation based on config
     import pandas as pd
-    df_workload = pd.DataFrame({"avg_cpu": workload / 100.0})  # Normalize to 0-1 for transform
+
+    df_workload = pd.DataFrame(
+        {"avg_cpu": workload / 100.0}
+    )  # Normalize to 0-1 for transform
     df_transformed = transform_workload(df_workload, args.workload)
-    workload = (df_transformed["avg_cpu"].values * 100.0).astype(np.float32)  # Back to 0-100 scale
+    workload = (df_transformed["avg_cpu"].values * 100.0).astype(
+        np.float32
+    )  # Back to 0-100 scale
     logger.info(f"Applied '{args.workload}' workload transformation")
     logger.debug(
         f"Transformed workload stats: min={workload.min():.2f}, max={workload.max():.2f}, mean={workload.mean():.2f}, std={workload.std():.2f}"
     )
-    
+
     # Get environment config for the workload type
     env_config = get_config(args.workload)
-    logger.info(f"Environment config: cooldown={env_config.cooldown_period}, sla_weight={env_config.sla_weight}")
+    logger.info(
+        f"Environment config: cooldown={env_config.cooldown_period}, sla_weight={env_config.sla_weight}"
+    )
 
     env = CloudAutoscalingEnv(workload_data=workload, seed=args.seed)
     logger.info(
@@ -1187,15 +1204,13 @@ def main():
 
     # Determine which algorithms to run
     run_baselines = args.algo in ["all", "tabular", "baselines"]
-    run_tabular = args.algo in ["all", "tabular"]
-    run_deep = args.algo in ["all", "deep"]
     run_q_learning = args.algo in ["all", "tabular", "q-learning"]
     run_sarsa = args.algo in ["all", "tabular", "sarsa"]
     run_dqn = args.algo in ["all", "deep", "dqn"]
     run_double_dqn = args.algo in ["all", "deep", "double-dqn"]
     run_dueling_dqn = args.algo in ["all", "deep", "dueling-dqn"]
     run_reinforce = args.algo in ["all", "deep", "reinforce"]
-    
+
     # Whether to skip training if model exists
     skip_if_exists = not args.force
 
@@ -1223,32 +1238,45 @@ def main():
     # Run DQN
     if run_dqn:
         results["dqn"] = train_dqn_agent(
-            env, n_episodes=n_episodes, agent_type="dqn", seed=args.seed,
-            skip_if_exists=skip_if_exists
+            env,
+            n_episodes=n_episodes,
+            agent_type="dqn",
+            seed=args.seed,
+            skip_if_exists=skip_if_exists,
         )
         save_results(results, results_dir, plots_dir)  # Save incrementally
 
     # Run Double DQN
     if run_double_dqn:
         results["double_dqn"] = train_dqn_agent(
-            env, n_episodes=n_episodes, agent_type="double_dqn", seed=args.seed,
-            skip_if_exists=skip_if_exists
+            env,
+            n_episodes=n_episodes,
+            agent_type="double_dqn",
+            seed=args.seed,
+            skip_if_exists=skip_if_exists,
         )
         save_results(results, results_dir, plots_dir)  # Save incrementally
 
     # Run Dueling DQN
     if run_dueling_dqn:
         results["dueling_dqn"] = train_dqn_agent(
-            env, n_episodes=n_episodes, agent_type="dueling_dqn", seed=args.seed,
-            skip_if_exists=skip_if_exists
+            env,
+            n_episodes=n_episodes,
+            agent_type="dueling_dqn",
+            seed=args.seed,
+            skip_if_exists=skip_if_exists,
         )
         save_results(results, results_dir, plots_dir)  # Save incrementally
 
     # Run REINFORCE (Policy Gradient)
     if run_reinforce:
         results["reinforce"] = train_reinforce_agent(
-            env, n_episodes=n_episodes, agent_type="reinforce", seed=args.seed,
-            skip_if_exists=skip_if_exists, use_baseline=True
+            env,
+            n_episodes=n_episodes,
+            agent_type="reinforce",
+            seed=args.seed,
+            skip_if_exists=skip_if_exists,
+            use_baseline=True,
         )
         save_results(results, results_dir, plots_dir)  # Save final results
 

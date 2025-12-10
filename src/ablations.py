@@ -83,9 +83,10 @@ class AblationStudy:
         if not self.results:
             raise ValueError("No results in study")
 
-        key_func = lambda r: r.metrics.get(
-            metric, float("-inf") if higher_is_better else float("inf")
-        )
+        def key_func(r):
+            return r.metrics.get(
+                    metric, float("-inf") if higher_is_better else float("inf")
+                )
         return (
             max(self.results, key=key_func)
             if higher_is_better

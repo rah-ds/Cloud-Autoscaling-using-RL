@@ -1,0 +1,114 @@
+2025-12-03 05:20:18,735 - run_experiments - INFO - setup_logging:95 - Logging initialized. Log file: /Users/ryan.healy/DS_MSDS/Cloud-Autoscaling-using-RL/artifacts/logs/experiment_20251203_052018.log
+2025-12-03 05:20:18,736 - run_experiments - INFO - main:776 - ============================================================
+2025-12-03 05:20:18,736 - run_experiments - INFO - main:777 - Cloud Autoscaling RL Experiments
+2025-12-03 05:20:18,736 - run_experiments - INFO - main:778 - ============================================================
+2025-12-03 05:20:18,736 - run_experiments - INFO - main:779 - Configuration:
+2025-12-03 05:20:18,736 - run_experiments - INFO - main:780 -   Episodes: 2000
+2025-12-03 05:20:18,737 - run_experiments - INFO - main:781 -   Algorithm: deep
+2025-12-03 05:20:18,737 - run_experiments - INFO - main:782 -   Seed: 42
+2025-12-03 05:20:18,737 - run_experiments - INFO - main:783 -   Results directory: /Users/ryan.healy/DS_MSDS/Cloud-Autoscaling-using-RL/artifacts/results
+2025-12-03 05:20:18,737 - run_experiments - INFO - main:784 -   Plots directory: /Users/ryan.healy/DS_MSDS/Cloud-Autoscaling-using-RL/artifacts/plots
+2025-12-03 05:20:18,737 - run_experiments - INFO - main:785 -   Quick mode: False
+2025-12-03 05:20:18,737 - run_experiments - INFO - main:786 -   Log level: INFO
+2025-12-03 05:20:18,737 - run_experiments - INFO - main:787 -   Wandb logging: enabled
+2025-12-03 05:20:18,737 - run_experiments - INFO - main:792 - Generating synthetic workload data...
+2025-12-03 05:20:18,740 - run_experiments - INFO - main:799 - Environment created: state_space=MultiDiscrete([3 5 3]), action_space=Discrete(3)
+2025-12-03 05:20:18,740 - run_experiments - INFO - train_dqn_agent:496 - ==================================================
+2025-12-03 05:20:18,740 - run_experiments - INFO - train_dqn_agent:497 - Training DQN Agent
+2025-12-03 05:20:18,740 - run_experiments - INFO - train_dqn_agent:498 -   Episodes: 2000
+2025-12-03 05:20:18,740 - run_experiments - INFO - train_dqn_agent:499 -   Learning rate: 0.001
+2025-12-03 05:20:18,740 - run_experiments - INFO - train_dqn_agent:500 -   Discount factor: 0.99
+2025-12-03 05:20:18,740 - run_experiments - INFO - train_dqn_agent:501 -   Initial epsilon: 1.0
+2025-12-03 05:20:18,740 - run_experiments - INFO - train_dqn_agent:502 -   Epsilon decay: 0.995
+2025-12-03 05:20:18,740 - run_experiments - INFO - train_dqn_agent:503 -   Seed: 42
+2025-12-03 05:24:52,460 - run_experiments - INFO - train_dqn_agent:594 -   Episode 100/2000: avg_reward=-26672.04, avg_sla=0.00, eps=0.606
+2025-12-03 05:29:30,492 - run_experiments - INFO - train_dqn_agent:594 -   Episode 200/2000: avg_reward=-6939.82, avg_sla=0.00, eps=0.367
+2025-12-03 05:34:19,931 - run_experiments - INFO - train_dqn_agent:594 -   Episode 300/2000: avg_reward=-3120.07, avg_sla=0.00, eps=0.222
+2025-12-03 05:39:29,863 - run_experiments - INFO - train_dqn_agent:594 -   Episode 400/2000: avg_reward=-2338.81, avg_sla=0.00, eps=0.135
+2025-12-03 05:44:30,006 - run_experiments - INFO - train_dqn_agent:594 -   Episode 500/2000: avg_reward=-2182.96, avg_sla=0.00, eps=0.082
+2025-12-03 05:49:31,624 - run_experiments - INFO - train_dqn_agent:594 -   Episode 600/2000: avg_reward=-889.14, avg_sla=0.00, eps=0.049
+2025-12-03 05:54:28,067 - run_experiments - INFO - train_dqn_agent:594 -   Episode 700/2000: avg_reward=-545.10, avg_sla=0.00, eps=0.030
+2025-12-03 05:59:27,158 - run_experiments - INFO - train_dqn_agent:594 -   Episode 800/2000: avg_reward=-438.98, avg_sla=0.00, eps=0.018
+2025-12-03 06:04:25,672 - run_experiments - INFO - train_dqn_agent:594 -   Episode 900/2000: avg_reward=-114.41, avg_sla=0.00, eps=0.011
+2025-12-03 06:09:32,225 - run_experiments - INFO - train_dqn_agent:594 -   Episode 1000/2000: avg_reward=414.38, avg_sla=0.00, eps=0.010
+2025-12-03 06:14:26,533 - run_experiments - INFO - train_dqn_agent:594 -   Episode 1100/2000: avg_reward=160.03, avg_sla=0.00, eps=0.010
+2025-12-03 06:19:26,649 - run_experiments - INFO - train_dqn_agent:594 -   Episode 1200/2000: avg_reward=544.08, avg_sla=0.00, eps=0.010
+2025-12-03 06:25:33,224 - run_experiments - INFO - train_dqn_agent:594 -   Episode 1300/2000: avg_reward=198.04, avg_sla=0.00, eps=0.010
+2025-12-03 06:31:47,513 - run_experiments - INFO - train_dqn_agent:594 -   Episode 1400/2000: avg_reward=192.34, avg_sla=0.00, eps=0.010
+2025-12-03 06:37:59,242 - run_experiments - INFO - train_dqn_agent:594 -   Episode 1500/2000: avg_reward=179.57, avg_sla=0.00, eps=0.010
+2025-12-03 06:44:15,836 - run_experiments - INFO - train_dqn_agent:594 -   Episode 1600/2000: avg_reward=-60.37, avg_sla=0.00, eps=0.010
+2025-12-03 06:50:32,781 - run_experiments - INFO - train_dqn_agent:594 -   Episode 1700/2000: avg_reward=-57.47, avg_sla=0.00, eps=0.010
+2025-12-03 06:56:50,297 - run_experiments - INFO - train_dqn_agent:594 -   Episode 1800/2000: avg_reward=92.12, avg_sla=0.00, eps=0.010
+2025-12-03 07:03:07,429 - run_experiments - INFO - train_dqn_agent:594 -   Episode 1900/2000: avg_reward=100.74, avg_sla=0.00, eps=0.010
+2025-12-03 07:09:24,072 - run_experiments - INFO - train_dqn_agent:594 -   Episode 2000/2000: avg_reward=-421.30, avg_sla=0.00, eps=0.010
+2025-12-03 07:09:24,073 - run_experiments - INFO - train_dqn_agent:606 - DQN training complete: final_reward=-421.30, final_sla=0.00
+2025-12-03 07:09:24,863 - run_experiments - INFO - train_dqn_agent:496 - ==================================================
+2025-12-03 07:09:24,863 - run_experiments - INFO - train_dqn_agent:497 - Training DOUBLE_DQN Agent
+2025-12-03 07:09:24,863 - run_experiments - INFO - train_dqn_agent:498 -   Episodes: 2000
+2025-12-03 07:09:24,863 - run_experiments - INFO - train_dqn_agent:499 -   Learning rate: 0.001
+2025-12-03 07:09:24,863 - run_experiments - INFO - train_dqn_agent:500 -   Discount factor: 0.99
+2025-12-03 07:09:24,863 - run_experiments - INFO - train_dqn_agent:501 -   Initial epsilon: 1.0
+2025-12-03 07:09:24,863 - run_experiments - INFO - train_dqn_agent:502 -   Epsilon decay: 0.995
+2025-12-03 07:09:24,864 - run_experiments - INFO - train_dqn_agent:503 -   Seed: 42
+2025-12-03 07:14:59,596 - run_experiments - INFO - train_dqn_agent:594 -   Episode 100/2000: avg_reward=-26686.66, avg_sla=0.00, eps=0.606
+2025-12-03 07:20:51,646 - run_experiments - INFO - train_dqn_agent:594 -   Episode 200/2000: avg_reward=-6957.10, avg_sla=0.00, eps=0.367
+2025-12-03 07:26:53,056 - run_experiments - INFO - train_dqn_agent:594 -   Episode 300/2000: avg_reward=-3574.90, avg_sla=0.00, eps=0.222
+2025-12-03 07:32:56,128 - run_experiments - INFO - train_dqn_agent:594 -   Episode 400/2000: avg_reward=-2257.77, avg_sla=0.00, eps=0.135
+2025-12-03 07:39:03,706 - run_experiments - INFO - train_dqn_agent:594 -   Episode 500/2000: avg_reward=-2971.84, avg_sla=0.00, eps=0.082
+2025-12-03 07:45:14,683 - run_experiments - INFO - train_dqn_agent:594 -   Episode 600/2000: avg_reward=-1728.98, avg_sla=0.00, eps=0.049
+2025-12-03 07:51:26,825 - run_experiments - INFO - train_dqn_agent:594 -   Episode 700/2000: avg_reward=-1275.88, avg_sla=0.00, eps=0.030
+2025-12-03 07:57:38,587 - run_experiments - INFO - train_dqn_agent:594 -   Episode 800/2000: avg_reward=-541.05, avg_sla=0.00, eps=0.018
+2025-12-03 08:03:52,144 - run_experiments - INFO - train_dqn_agent:594 -   Episode 900/2000: avg_reward=-531.15, avg_sla=0.00, eps=0.011
+2025-12-03 08:10:05,965 - run_experiments - INFO - train_dqn_agent:594 -   Episode 1000/2000: avg_reward=309.73, avg_sla=0.00, eps=0.010
+2025-12-03 08:16:20,730 - run_experiments - INFO - train_dqn_agent:594 -   Episode 1100/2000: avg_reward=-555.02, avg_sla=0.00, eps=0.010
+2025-12-03 08:22:35,422 - run_experiments - INFO - train_dqn_agent:594 -   Episode 1200/2000: avg_reward=-347.46, avg_sla=0.00, eps=0.010
+2025-12-03 08:28:56,438 - run_experiments - INFO - train_dqn_agent:594 -   Episode 1300/2000: avg_reward=-62.77, avg_sla=0.00, eps=0.010
+2025-12-03 08:35:20,304 - run_experiments - INFO - train_dqn_agent:594 -   Episode 1400/2000: avg_reward=98.76, avg_sla=0.00, eps=0.010
+2025-12-03 08:41:44,786 - run_experiments - INFO - train_dqn_agent:594 -   Episode 1500/2000: avg_reward=29.51, avg_sla=0.00, eps=0.010
+2025-12-03 08:48:09,992 - run_experiments - INFO - train_dqn_agent:594 -   Episode 1600/2000: avg_reward=-197.49, avg_sla=0.00, eps=0.010
+2025-12-03 08:54:34,661 - run_experiments - INFO - train_dqn_agent:594 -   Episode 1700/2000: avg_reward=130.50, avg_sla=0.00, eps=0.010
+2025-12-03 09:00:56,854 - run_experiments - INFO - train_dqn_agent:594 -   Episode 1800/2000: avg_reward=-97.31, avg_sla=0.00, eps=0.010
+2025-12-03 09:07:22,329 - run_experiments - INFO - train_dqn_agent:594 -   Episode 1900/2000: avg_reward=272.40, avg_sla=0.00, eps=0.010
+2025-12-03 09:13:46,506 - run_experiments - INFO - train_dqn_agent:594 -   Episode 2000/2000: avg_reward=341.24, avg_sla=0.00, eps=0.010
+2025-12-03 09:13:46,506 - run_experiments - INFO - train_dqn_agent:606 - DOUBLE_DQN training complete: final_reward=341.24, final_sla=0.00
+2025-12-03 09:13:47,594 - run_experiments - INFO - train_dqn_agent:496 - ==================================================
+2025-12-03 09:13:47,594 - run_experiments - INFO - train_dqn_agent:497 - Training DUELING_DQN Agent
+2025-12-03 09:13:47,594 - run_experiments - INFO - train_dqn_agent:498 -   Episodes: 2000
+2025-12-03 09:13:47,594 - run_experiments - INFO - train_dqn_agent:499 -   Learning rate: 0.001
+2025-12-03 09:13:47,594 - run_experiments - INFO - train_dqn_agent:500 -   Discount factor: 0.99
+2025-12-03 09:13:47,594 - run_experiments - INFO - train_dqn_agent:501 -   Initial epsilon: 1.0
+2025-12-03 09:13:47,594 - run_experiments - INFO - train_dqn_agent:502 -   Epsilon decay: 0.995
+2025-12-03 09:13:47,594 - run_experiments - INFO - train_dqn_agent:503 -   Seed: 42
+2025-12-03 09:20:36,104 - run_experiments - INFO - train_dqn_agent:594 -   Episode 100/2000: avg_reward=-26598.42, avg_sla=0.00, eps=0.606
+2025-12-03 09:27:36,376 - run_experiments - INFO - train_dqn_agent:594 -   Episode 200/2000: avg_reward=-6837.61, avg_sla=0.00, eps=0.367
+2025-12-03 09:35:21,991 - run_experiments - INFO - train_dqn_agent:594 -   Episode 300/2000: avg_reward=-3077.96, avg_sla=0.00, eps=0.222
+2025-12-03 09:43:02,018 - run_experiments - INFO - train_dqn_agent:594 -   Episode 400/2000: avg_reward=-1809.14, avg_sla=0.00, eps=0.135
+2025-12-03 09:50:42,570 - run_experiments - INFO - train_dqn_agent:594 -   Episode 500/2000: avg_reward=-1383.04, avg_sla=0.00, eps=0.082
+2025-12-03 09:58:25,700 - run_experiments - INFO - train_dqn_agent:594 -   Episode 600/2000: avg_reward=-717.16, avg_sla=0.00, eps=0.049
+2025-12-03 10:06:08,831 - run_experiments - INFO - train_dqn_agent:594 -   Episode 700/2000: avg_reward=-871.10, avg_sla=0.00, eps=0.030
+2025-12-03 10:13:51,810 - run_experiments - INFO - train_dqn_agent:594 -   Episode 800/2000: avg_reward=136.89, avg_sla=0.00, eps=0.018
+2025-12-03 10:21:35,387 - run_experiments - INFO - train_dqn_agent:594 -   Episode 900/2000: avg_reward=282.91, avg_sla=0.00, eps=0.011
+2025-12-03 10:29:23,521 - run_experiments - INFO - train_dqn_agent:594 -   Episode 1000/2000: avg_reward=-137.92, avg_sla=0.00, eps=0.010
+2025-12-03 10:37:14,445 - run_experiments - INFO - train_dqn_agent:594 -   Episode 1100/2000: avg_reward=-273.71, avg_sla=0.00, eps=0.010
+2025-12-03 10:45:05,185 - run_experiments - INFO - train_dqn_agent:594 -   Episode 1200/2000: avg_reward=261.36, avg_sla=0.00, eps=0.010
+2025-12-03 10:52:55,571 - run_experiments - INFO - train_dqn_agent:594 -   Episode 1300/2000: avg_reward=332.63, avg_sla=0.00, eps=0.010
+2025-12-03 11:00:45,158 - run_experiments - INFO - train_dqn_agent:594 -   Episode 1400/2000: avg_reward=139.69, avg_sla=0.00, eps=0.010
+2025-12-03 11:08:34,748 - run_experiments - INFO - train_dqn_agent:594 -   Episode 1500/2000: avg_reward=480.68, avg_sla=0.00, eps=0.010
+2025-12-03 11:16:22,116 - run_experiments - INFO - train_dqn_agent:594 -   Episode 1600/2000: avg_reward=403.81, avg_sla=0.00, eps=0.010
+2025-12-03 11:24:10,080 - run_experiments - INFO - train_dqn_agent:594 -   Episode 1700/2000: avg_reward=-163.85, avg_sla=0.00, eps=0.010
+2025-12-03 11:31:54,979 - run_experiments - INFO - train_dqn_agent:594 -   Episode 1800/2000: avg_reward=218.80, avg_sla=0.00, eps=0.010
+2025-12-03 11:39:40,291 - run_experiments - INFO - train_dqn_agent:594 -   Episode 1900/2000: avg_reward=82.60, avg_sla=0.00, eps=0.010
+2025-12-03 11:47:27,520 - run_experiments - INFO - train_dqn_agent:594 -   Episode 2000/2000: avg_reward=1185.35, avg_sla=0.00, eps=0.010
+2025-12-03 11:47:27,521 - run_experiments - INFO - train_dqn_agent:606 - DUELING_DQN training complete: final_reward=1185.35, final_sla=0.00
+2025-12-03 11:47:28,509 - run_experiments - INFO - save_results:627 - ==================================================
+2025-12-03 11:47:28,509 - run_experiments - INFO - save_results:628 - Saving experiment results
+2025-12-03 11:47:28,528 - run_experiments - INFO - save_results:650 - JSON results saved to /Users/ryan.healy/DS_MSDS/Cloud-Autoscaling-using-RL/artifacts/results/results_20251203_114728.json
+2025-12-03 11:47:28,528 - run_experiments - INFO - main:857 - ============================================================
+2025-12-03 11:47:28,528 - run_experiments - INFO - main:858 - EXPERIMENT SUMMARY
+2025-12-03 11:47:28,528 - run_experiments - INFO - main:859 - ============================================================
+2025-12-03 11:47:28,528 - run_experiments - INFO - main:880 - DQN: reward=-421.30, sla=0.00
+2025-12-03 11:47:28,528 - run_experiments - INFO - main:885 - Double DQN: reward=341.24, sla=0.00
+2025-12-03 11:47:28,528 - run_experiments - INFO - main:890 - Dueling DQN: reward=1185.35, sla=0.00
+2025-12-03 11:47:28,528 - run_experiments - INFO - main:894 - ============================================================
+2025-12-03 11:47:28,528 - run_experiments - INFO - main:895 - Total runtime: 6:27:09.788072
+2025-12-03 11:47:28,528 - run_experiments - INFO - main:896 - Experiments complete!

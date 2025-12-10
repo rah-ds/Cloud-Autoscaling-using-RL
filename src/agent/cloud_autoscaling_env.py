@@ -151,7 +151,7 @@ class CloudAutoscalingEnv(gym.Env):
         """
         reward = 0.0
         utilization = self._calculate_utilization()
-        
+
         # Track if THIS step had an SLA violation (for per-step reporting)
         self._current_step_sla_violation = 0
 

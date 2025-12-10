@@ -1,0 +1,173 @@
+2025-12-03 23:50:39,187 - run_experiments - INFO - setup_logging:107 - Logging initialized. Log file: /Users/ryan.healy/DS_MSDS/Cloud-Autoscaling-using-RL/artifacts/logs/experiment_20251203_235039.log
+2025-12-03 23:50:39,188 - run_experiments - INFO - main:1143 - ============================================================
+2025-12-03 23:50:39,188 - run_experiments - INFO - main:1144 - Cloud Autoscaling RL Experiments
+2025-12-03 23:50:39,189 - run_experiments - INFO - main:1145 - ============================================================
+2025-12-03 23:50:39,189 - run_experiments - INFO - main:1146 - Configuration:
+2025-12-03 23:50:39,189 - run_experiments - INFO - main:1147 -   Episodes: 1000
+2025-12-03 23:50:39,189 - run_experiments - INFO - main:1148 -   Algorithm: all
+2025-12-03 23:50:39,190 - run_experiments - INFO - main:1149 -   Workload: seasonal
+2025-12-03 23:50:39,190 - run_experiments - INFO - main:1150 -   Seed: 42
+2025-12-03 23:50:39,190 - run_experiments - INFO - main:1151 -   Results directory: /Users/ryan.healy/DS_MSDS/Cloud-Autoscaling-using-RL/artifacts/results
+2025-12-03 23:50:39,190 - run_experiments - INFO - main:1152 -   Plots directory: /Users/ryan.healy/DS_MSDS/Cloud-Autoscaling-using-RL/artifacts/plots
+2025-12-03 23:50:39,190 - run_experiments - INFO - main:1153 -   Quick mode: False
+2025-12-03 23:50:39,190 - run_experiments - INFO - main:1154 -   Log level: INFO
+2025-12-03 23:50:39,191 - run_experiments - INFO - main:1155 -   Wandb logging: enabled
+2025-12-03 23:50:39,191 - run_experiments - INFO - main:1160 - Generating synthetic workload data...
+2025-12-03 23:50:39,197 - run_experiments - INFO - main:1171 - Applied 'seasonal' workload transformation
+2025-12-03 23:50:39,197 - run_experiments - INFO - main:1178 - Environment config: cooldown=3, sla_weight=10.0
+2025-12-03 23:50:39,198 - run_experiments - INFO - main:1181 - Environment created: state_space=MultiDiscrete([3 5 3]), action_space=Discrete(3)
+2025-12-03 23:50:39,198 - run_experiments - INFO - run_baseline_policies:202 - ==================================================
+2025-12-03 23:50:39,198 - run_experiments - INFO - run_baseline_policies:203 - Running baseline policies...
+2025-12-03 23:50:39,198 - run_experiments - INFO - run_baseline_policies:204 - Number of episodes: 100
+2025-12-03 23:50:39,467 - run_experiments - INFO - run_baseline_policies:236 - Random Policy completed: reward=-74095.47 ± 6717.73
+2025-12-03 23:50:39,601 - run_experiments - INFO - run_baseline_policies:269 - Threshold Policy completed: reward=-18158.12 ± 0.00
+2025-12-03 23:50:39,601 - run_experiments - INFO - run_baseline_policies:272 - Baseline policies evaluation complete
+2025-12-03 23:50:39,601 - run_experiments - INFO - save_results:981 - ==================================================
+2025-12-03 23:50:39,601 - run_experiments - INFO - save_results:982 - Saving experiment results
+2025-12-03 23:50:39,602 - run_experiments - INFO - save_results:1004 - JSON results saved to /Users/ryan.healy/DS_MSDS/Cloud-Autoscaling-using-RL/artifacts/results/results_20251203_235039.json
+2025-12-03 23:50:39,602 - run_experiments - INFO - train_q_learning_agent:307 - ==================================================
+2025-12-03 23:50:39,602 - run_experiments - INFO - train_q_learning_agent:308 - Training Q-Learning Agent
+2025-12-03 23:50:39,602 - run_experiments - INFO - train_q_learning_agent:309 -   Episodes: 1000
+2025-12-03 23:50:39,602 - run_experiments - INFO - train_q_learning_agent:310 -   Learning rate: 0.1
+2025-12-03 23:50:39,602 - run_experiments - INFO - train_q_learning_agent:311 -   Discount factor: 0.95
+2025-12-03 23:50:39,602 - run_experiments - INFO - train_q_learning_agent:312 -   Initial epsilon: 1.0
+2025-12-03 23:50:39,602 - run_experiments - INFO - train_q_learning_agent:313 -   Epsilon decay: 0.995
+2025-12-03 23:50:39,602 - run_experiments - INFO - train_q_learning_agent:314 -   Seed: 42
+2025-12-03 23:50:47,072 - run_experiments - INFO - train_q_learning_agent:381 - Q-Learning training complete: final_reward=-17214.96, final_sla=340.56
+2025-12-03 23:50:47,914 - run_experiments - INFO - save_model:168 - Model saved to /Users/ryan.healy/DS_MSDS/Cloud-Autoscaling-using-RL/artifacts/models/q_learning_seasonal_1000ep_20251203.pkl
+2025-12-03 23:50:47,914 - run_experiments - INFO - save_results:981 - ==================================================
+2025-12-03 23:50:47,914 - run_experiments - INFO - save_results:982 - Saving experiment results
+2025-12-03 23:50:47,919 - run_experiments - INFO - save_results:1004 - JSON results saved to /Users/ryan.healy/DS_MSDS/Cloud-Autoscaling-using-RL/artifacts/results/results_20251203_235047.json
+2025-12-03 23:50:47,920 - run_experiments - INFO - train_sarsa_agent:444 - ==================================================
+2025-12-03 23:50:47,920 - run_experiments - INFO - train_sarsa_agent:445 - Training SARSA Agent
+2025-12-03 23:50:47,920 - run_experiments - INFO - train_sarsa_agent:446 -   Episodes: 1000
+2025-12-03 23:50:47,920 - run_experiments - INFO - train_sarsa_agent:447 -   Learning rate: 0.1
+2025-12-03 23:50:47,921 - run_experiments - INFO - train_sarsa_agent:448 -   Discount factor: 0.95
+2025-12-03 23:50:47,921 - run_experiments - INFO - train_sarsa_agent:449 -   Initial epsilon: 1.0
+2025-12-03 23:50:47,921 - run_experiments - INFO - train_sarsa_agent:450 -   Epsilon decay: 0.995
+2025-12-03 23:50:47,921 - run_experiments - INFO - train_sarsa_agent:451 -   Seed: 42
+2025-12-03 23:50:49,324 - run_experiments - INFO - train_sarsa_agent:521 -   Episode 100/1000: avg_reward=-41136.45, avg_sla=504.73, eps=0.606
+2025-12-03 23:50:49,845 - run_experiments - INFO - train_sarsa_agent:521 -   Episode 200/1000: avg_reward=-22085.88, avg_sla=384.27, eps=0.367
+2025-12-03 23:50:50,327 - run_experiments - INFO - train_sarsa_agent:521 -   Episode 300/1000: avg_reward=-19743.01, avg_sla=363.92, eps=0.222
+2025-12-03 23:50:50,802 - run_experiments - INFO - train_sarsa_agent:521 -   Episode 400/1000: avg_reward=-18974.88, avg_sla=356.48, eps=0.135
+2025-12-03 23:50:51,267 - run_experiments - INFO - train_sarsa_agent:521 -   Episode 500/1000: avg_reward=-18446.62, avg_sla=350.61, eps=0.082
+2025-12-03 23:50:51,729 - run_experiments - INFO - train_sarsa_agent:521 -   Episode 600/1000: avg_reward=-17856.49, avg_sla=345.03, eps=0.049
+2025-12-03 23:50:52,190 - run_experiments - INFO - train_sarsa_agent:521 -   Episode 700/1000: avg_reward=-17838.62, avg_sla=345.66, eps=0.030
+2025-12-03 23:50:52,655 - run_experiments - INFO - train_sarsa_agent:521 -   Episode 800/1000: avg_reward=-17467.62, avg_sla=342.32, eps=0.018
+2025-12-03 23:50:53,116 - run_experiments - INFO - train_sarsa_agent:521 -   Episode 900/1000: avg_reward=-17201.60, avg_sla=339.80, eps=0.011
+2025-12-03 23:50:53,577 - run_experiments - INFO - train_sarsa_agent:521 -   Episode 1000/1000: avg_reward=-16893.47, avg_sla=337.30, eps=0.010
+2025-12-03 23:50:53,578 - run_experiments - INFO - train_sarsa_agent:527 - SARSA training complete: final_reward=-16893.47, final_sla=337.30
+2025-12-03 23:50:54,582 - run_experiments - INFO - save_model:168 - Model saved to /Users/ryan.healy/DS_MSDS/Cloud-Autoscaling-using-RL/artifacts/models/sarsa_seasonal_1000ep_20251203.pkl
+2025-12-03 23:50:54,582 - run_experiments - INFO - save_results:981 - ==================================================
+2025-12-03 23:50:54,583 - run_experiments - INFO - save_results:982 - Saving experiment results
+2025-12-03 23:50:54,593 - run_experiments - INFO - save_results:1004 - JSON results saved to /Users/ryan.healy/DS_MSDS/Cloud-Autoscaling-using-RL/artifacts/results/results_20251203_235054.json
+2025-12-03 23:50:54,820 - run_experiments - INFO - save_results:1066 - Plot saved to /Users/ryan.healy/DS_MSDS/Cloud-Autoscaling-using-RL/artifacts/plots/comparison_20251203_235054.png
+2025-12-03 23:50:54,821 - run_experiments - INFO - train_dqn_agent:651 - ==================================================
+2025-12-03 23:50:54,821 - run_experiments - INFO - train_dqn_agent:652 - Training DQN Agent
+2025-12-03 23:50:54,821 - run_experiments - INFO - train_dqn_agent:653 -   Episodes: 1000
+2025-12-03 23:50:54,821 - run_experiments - INFO - train_dqn_agent:654 -   Learning rate: 0.001
+2025-12-03 23:50:54,821 - run_experiments - INFO - train_dqn_agent:655 -   Discount factor: 0.99
+2025-12-03 23:50:54,821 - run_experiments - INFO - train_dqn_agent:656 -   Initial epsilon: 1.0
+2025-12-03 23:50:54,821 - run_experiments - INFO - train_dqn_agent:657 -   Epsilon decay: 0.995
+2025-12-03 23:50:54,821 - run_experiments - INFO - train_dqn_agent:658 -   Seed: 42
+2025-12-03 23:55:12,165 - run_experiments - INFO - train_dqn_agent:749 -   Episode 100/1000: avg_reward=-41337.04, avg_sla=505.75, eps=0.606
+2025-12-03 23:59:50,163 - run_experiments - INFO - train_dqn_agent:749 -   Episode 200/1000: avg_reward=-21948.59, avg_sla=383.66, eps=0.367
+2025-12-04 00:04:39,152 - run_experiments - INFO - train_dqn_agent:749 -   Episode 300/1000: avg_reward=-18913.10, avg_sla=357.73, eps=0.222
+2025-12-04 00:09:34,914 - run_experiments - INFO - train_dqn_agent:749 -   Episode 400/1000: avg_reward=-22451.18, avg_sla=407.99, eps=0.135
+2025-12-04 00:14:28,089 - run_experiments - INFO - train_dqn_agent:749 -   Episode 500/1000: avg_reward=-23553.51, avg_sla=425.58, eps=0.082
+2025-12-04 00:19:22,089 - run_experiments - INFO - train_dqn_agent:749 -   Episode 600/1000: avg_reward=-22092.10, avg_sla=406.60, eps=0.049
+2025-12-04 00:24:22,093 - run_experiments - INFO - train_dqn_agent:749 -   Episode 700/1000: avg_reward=-22255.66, avg_sla=410.95, eps=0.030
+2025-12-04 00:29:25,548 - run_experiments - INFO - train_dqn_agent:749 -   Episode 800/1000: avg_reward=-22857.91, avg_sla=416.45, eps=0.018
+2025-12-04 00:34:23,974 - run_experiments - INFO - train_dqn_agent:749 -   Episode 900/1000: avg_reward=-21384.62, avg_sla=396.93, eps=0.011
+2025-12-04 00:39:21,060 - run_experiments - INFO - train_dqn_agent:749 -   Episode 1000/1000: avg_reward=-21562.94, avg_sla=400.40, eps=0.010
+2025-12-04 00:39:21,060 - run_experiments - INFO - train_dqn_agent:761 - DQN training complete: final_reward=-21562.94, final_sla=400.40
+2025-12-04 00:39:21,871 - run_experiments - INFO - save_model:168 - Model saved to /Users/ryan.healy/DS_MSDS/Cloud-Autoscaling-using-RL/artifacts/models/dqn_seasonal_1000ep_20251204.pkl
+2025-12-04 00:39:21,871 - run_experiments - INFO - save_results:981 - ==================================================
+2025-12-04 00:39:21,871 - run_experiments - INFO - save_results:982 - Saving experiment results
+2025-12-04 00:39:21,875 - run_experiments - INFO - save_results:1004 - JSON results saved to /Users/ryan.healy/DS_MSDS/Cloud-Autoscaling-using-RL/artifacts/results/results_20251204_003921.json
+2025-12-04 00:39:21,969 - run_experiments - INFO - save_results:1066 - Plot saved to /Users/ryan.healy/DS_MSDS/Cloud-Autoscaling-using-RL/artifacts/plots/comparison_20251204_003921.png
+2025-12-04 00:39:21,969 - run_experiments - INFO - train_dqn_agent:651 - ==================================================
+2025-12-04 00:39:21,969 - run_experiments - INFO - train_dqn_agent:652 - Training DOUBLE_DQN Agent
+2025-12-04 00:39:21,969 - run_experiments - INFO - train_dqn_agent:653 -   Episodes: 1000
+2025-12-04 00:39:21,969 - run_experiments - INFO - train_dqn_agent:654 -   Learning rate: 0.001
+2025-12-04 00:39:21,969 - run_experiments - INFO - train_dqn_agent:655 -   Discount factor: 0.99
+2025-12-04 00:39:21,969 - run_experiments - INFO - train_dqn_agent:656 -   Initial epsilon: 1.0
+2025-12-04 00:39:21,969 - run_experiments - INFO - train_dqn_agent:657 -   Epsilon decay: 0.995
+2025-12-04 00:39:21,969 - run_experiments - INFO - train_dqn_agent:658 -   Seed: 42
+2025-12-04 00:49:08,333 - run_experiments - INFO - train_dqn_agent:749 -   Episode 100/1000: avg_reward=-41693.70, avg_sla=508.49, eps=0.606
+2025-12-04 00:59:36,789 - run_experiments - INFO - train_dqn_agent:749 -   Episode 200/1000: avg_reward=-22659.14, avg_sla=390.84, eps=0.367
+2025-12-04 01:10:27,861 - run_experiments - INFO - train_dqn_agent:749 -   Episode 300/1000: avg_reward=-20366.35, avg_sla=375.51, eps=0.222
+2025-12-04 01:21:34,800 - run_experiments - INFO - train_dqn_agent:749 -   Episode 400/1000: avg_reward=-20634.29, avg_sla=381.89, eps=0.135
+2025-12-04 01:32:41,793 - run_experiments - INFO - train_dqn_agent:749 -   Episode 500/1000: avg_reward=-22145.63, avg_sla=403.84, eps=0.082
+2025-12-04 01:44:06,233 - run_experiments - INFO - train_dqn_agent:749 -   Episode 600/1000: avg_reward=-22633.96, avg_sla=412.87, eps=0.049
+2025-12-04 01:55:38,780 - run_experiments - INFO - train_dqn_agent:749 -   Episode 700/1000: avg_reward=-21107.53, avg_sla=391.38, eps=0.030
+2025-12-04 02:07:16,889 - run_experiments - INFO - train_dqn_agent:749 -   Episode 800/1000: avg_reward=-21255.01, avg_sla=394.00, eps=0.018
+2025-12-04 02:18:54,258 - run_experiments - INFO - train_dqn_agent:749 -   Episode 900/1000: avg_reward=-19500.84, avg_sla=371.43, eps=0.011
+2025-12-04 02:30:26,155 - run_experiments - INFO - train_dqn_agent:749 -   Episode 1000/1000: avg_reward=-21595.54, avg_sla=397.07, eps=0.010
+2025-12-04 02:30:26,158 - run_experiments - INFO - train_dqn_agent:761 - DOUBLE_DQN training complete: final_reward=-21595.54, final_sla=397.07
+2025-12-04 02:30:27,057 - run_experiments - INFO - save_model:168 - Model saved to /Users/ryan.healy/DS_MSDS/Cloud-Autoscaling-using-RL/artifacts/models/double_dqn_seasonal_1000ep_20251204.pkl
+2025-12-04 02:30:27,057 - run_experiments - INFO - save_results:981 - ==================================================
+2025-12-04 02:30:27,057 - run_experiments - INFO - save_results:982 - Saving experiment results
+2025-12-04 02:30:27,064 - run_experiments - INFO - save_results:1004 - JSON results saved to /Users/ryan.healy/DS_MSDS/Cloud-Autoscaling-using-RL/artifacts/results/results_20251204_023027.json
+2025-12-04 02:30:27,227 - run_experiments - INFO - save_results:1066 - Plot saved to /Users/ryan.healy/DS_MSDS/Cloud-Autoscaling-using-RL/artifacts/plots/comparison_20251204_023027.png
+2025-12-04 02:30:27,227 - run_experiments - INFO - train_dqn_agent:651 - ==================================================
+2025-12-04 02:30:27,228 - run_experiments - INFO - train_dqn_agent:652 - Training DUELING_DQN Agent
+2025-12-04 02:30:27,228 - run_experiments - INFO - train_dqn_agent:653 -   Episodes: 1000
+2025-12-04 02:30:27,228 - run_experiments - INFO - train_dqn_agent:654 -   Learning rate: 0.001
+2025-12-04 02:30:27,228 - run_experiments - INFO - train_dqn_agent:655 -   Discount factor: 0.99
+2025-12-04 02:30:27,228 - run_experiments - INFO - train_dqn_agent:656 -   Initial epsilon: 1.0
+2025-12-04 02:30:27,228 - run_experiments - INFO - train_dqn_agent:657 -   Epsilon decay: 0.995
+2025-12-04 02:30:27,228 - run_experiments - INFO - train_dqn_agent:658 -   Seed: 42
+2025-12-04 02:40:15,313 - run_experiments - INFO - train_dqn_agent:749 -   Episode 100/1000: avg_reward=-41125.96, avg_sla=504.31, eps=0.606
+2025-12-04 02:50:29,363 - run_experiments - INFO - train_dqn_agent:749 -   Episode 200/1000: avg_reward=-21560.64, avg_sla=381.59, eps=0.367
+2025-12-04 03:01:16,493 - run_experiments - INFO - train_dqn_agent:749 -   Episode 300/1000: avg_reward=-18567.21, avg_sla=353.85, eps=0.222
+2025-12-04 03:12:17,044 - run_experiments - INFO - train_dqn_agent:749 -   Episode 400/1000: avg_reward=-21867.99, avg_sla=403.01, eps=0.135
+2025-12-04 03:23:10,469 - run_experiments - INFO - train_dqn_agent:749 -   Episode 500/1000: avg_reward=-25495.48, avg_sla=450.81, eps=0.082
+2025-12-04 03:34:34,357 - run_experiments - INFO - train_dqn_agent:749 -   Episode 600/1000: avg_reward=-22136.02, avg_sla=408.93, eps=0.049
+2025-12-04 03:46:07,865 - run_experiments - INFO - train_dqn_agent:749 -   Episode 700/1000: avg_reward=-26106.94, avg_sla=458.60, eps=0.030
+2025-12-04 03:57:51,099 - run_experiments - INFO - train_dqn_agent:749 -   Episode 800/1000: avg_reward=-26151.93, avg_sla=459.84, eps=0.018
+2025-12-04 04:09:29,358 - run_experiments - INFO - train_dqn_agent:749 -   Episode 900/1000: avg_reward=-26824.37, avg_sla=466.87, eps=0.011
+2025-12-04 04:21:13,129 - run_experiments - INFO - train_dqn_agent:749 -   Episode 1000/1000: avg_reward=-27585.70, avg_sla=473.56, eps=0.010
+2025-12-04 04:21:13,129 - run_experiments - INFO - train_dqn_agent:761 - DUELING_DQN training complete: final_reward=-27585.70, final_sla=473.56
+2025-12-04 04:21:14,253 - run_experiments - INFO - save_model:168 - Model saved to /Users/ryan.healy/DS_MSDS/Cloud-Autoscaling-using-RL/artifacts/models/dueling_dqn_seasonal_1000ep_20251204.pkl
+2025-12-04 04:21:14,253 - run_experiments - INFO - save_results:981 - ==================================================
+2025-12-04 04:21:14,253 - run_experiments - INFO - save_results:982 - Saving experiment results
+2025-12-04 04:21:14,265 - run_experiments - INFO - save_results:1004 - JSON results saved to /Users/ryan.healy/DS_MSDS/Cloud-Autoscaling-using-RL/artifacts/results/results_20251204_042114.json
+2025-12-04 04:21:14,351 - run_experiments - INFO - save_results:1066 - Plot saved to /Users/ryan.healy/DS_MSDS/Cloud-Autoscaling-using-RL/artifacts/plots/comparison_20251204_042114.png
+2025-12-04 04:21:14,352 - run_experiments - INFO - train_reinforce_agent:841 - ==================================================
+2025-12-04 04:21:14,352 - run_experiments - INFO - train_reinforce_agent:842 - Training REINFORCE Agent (Policy Gradient)
+2025-12-04 04:21:14,352 - run_experiments - INFO - train_reinforce_agent:843 -   Episodes: 1000
+2025-12-04 04:21:14,352 - run_experiments - INFO - train_reinforce_agent:844 -   Learning rate: 0.001
+2025-12-04 04:21:14,352 - run_experiments - INFO - train_reinforce_agent:845 -   Discount factor: 0.99
+2025-12-04 04:21:14,352 - run_experiments - INFO - train_reinforce_agent:846 -   Use baseline: True
+2025-12-04 04:21:30,926 - run_experiments - INFO - train_reinforce_agent:934 -   Episode 100/1000: avg_reward=-17886.85, avg_sla=342.13, avg_loss=-10.71
+2025-12-04 04:21:46,559 - run_experiments - INFO - train_reinforce_agent:934 -   Episode 200/1000: avg_reward=-15894.54, avg_sla=329.09, avg_loss=-44.23
+2025-12-04 04:22:02,294 - run_experiments - INFO - train_reinforce_agent:934 -   Episode 300/1000: avg_reward=-16193.54, avg_sla=329.10, avg_loss=-17.34
+2025-12-04 04:22:18,215 - run_experiments - INFO - train_reinforce_agent:934 -   Episode 400/1000: avg_reward=-17081.98, avg_sla=328.22, avg_loss=16.33
+2025-12-04 04:22:34,198 - run_experiments - INFO - train_reinforce_agent:934 -   Episode 500/1000: avg_reward=-18983.20, avg_sla=354.48, avg_loss=16.55
+2025-12-04 04:22:50,086 - run_experiments - INFO - train_reinforce_agent:934 -   Episode 600/1000: avg_reward=-17545.28, avg_sla=343.99, avg_loss=2.30
+2025-12-04 04:23:05,840 - run_experiments - INFO - train_reinforce_agent:934 -   Episode 700/1000: avg_reward=-16535.39, avg_sla=332.35, avg_loss=0.96
+2025-12-04 04:23:21,804 - run_experiments - INFO - train_reinforce_agent:934 -   Episode 800/1000: avg_reward=-16715.44, avg_sla=328.45, avg_loss=-1.87
+2025-12-04 04:23:37,680 - run_experiments - INFO - train_reinforce_agent:934 -   Episode 900/1000: avg_reward=-16850.72, avg_sla=328.39, avg_loss=3.94
+2025-12-04 04:23:53,551 - run_experiments - INFO - train_reinforce_agent:934 -   Episode 1000/1000: avg_reward=-16938.40, avg_sla=328.91, avg_loss=2.09
+2025-12-04 04:23:53,552 - run_experiments - INFO - train_reinforce_agent:947 - REINFORCE training complete: final_reward=-16938.40, final_sla=328.91
+2025-12-04 04:23:54,269 - run_experiments - INFO - save_model:168 - Model saved to /Users/ryan.healy/DS_MSDS/Cloud-Autoscaling-using-RL/artifacts/models/reinforce_seasonal_1000ep_20251204.pkl
+2025-12-04 04:23:54,269 - run_experiments - INFO - save_results:981 - ==================================================
+2025-12-04 04:23:54,269 - run_experiments - INFO - save_results:982 - Saving experiment results
+2025-12-04 04:23:54,293 - run_experiments - INFO - save_results:1004 - JSON results saved to /Users/ryan.healy/DS_MSDS/Cloud-Autoscaling-using-RL/artifacts/results/results_20251204_042354.json
+2025-12-04 04:23:54,397 - run_experiments - INFO - save_results:1066 - Plot saved to /Users/ryan.healy/DS_MSDS/Cloud-Autoscaling-using-RL/artifacts/plots/comparison_20251204_042354.png
+2025-12-04 04:23:54,398 - run_experiments - INFO - main:1259 - ============================================================
+2025-12-04 04:23:54,398 - run_experiments - INFO - main:1260 - EXPERIMENT SUMMARY
+2025-12-04 04:23:54,398 - run_experiments - INFO - main:1261 - ============================================================
+2025-12-04 04:23:54,398 - run_experiments - INFO - main:1264 - Baseline Policies:
+2025-12-04 04:23:54,398 - run_experiments - INFO - main:1266 -   Random: reward=-74095.47, sla_violations=676.26
+2025-12-04 04:23:54,398 - run_experiments - INFO - main:1266 -   Threshold: reward=-18158.12, sla_violations=365.00
+2025-12-04 04:23:54,398 - run_experiments - INFO - main:1271 - Q-Learning: reward=-17214.96, sla=340.56
+2025-12-04 04:23:54,398 - run_experiments - INFO - main:1276 - SARSA: reward=-16893.47, sla=337.30
+2025-12-04 04:23:54,398 - run_experiments - INFO - main:1282 - DQN: reward=-21562.94, sla=400.40
+2025-12-04 04:23:54,398 - run_experiments - INFO - main:1287 - Double DQN: reward=-21595.54, sla=397.07
+2025-12-04 04:23:54,398 - run_experiments - INFO - main:1292 - Dueling DQN: reward=-27585.70, sla=473.56
+2025-12-04 04:23:54,398 - run_experiments - INFO - main:1297 - REINFORCE: reward=-16938.40, sla=328.91
+2025-12-04 04:23:54,398 - run_experiments - INFO - main:1301 - ============================================================
+2025-12-04 04:23:54,398 - run_experiments - INFO - main:1302 - Total runtime: 4:33:15.199398
+2025-12-04 04:23:54,398 - run_experiments - INFO - main:1303 - Experiments complete!

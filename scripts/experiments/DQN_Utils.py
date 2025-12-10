@@ -295,8 +295,6 @@ def evaluate_agent(
     return eval_scores, evaluation_results_df
 
 
-
-
 def sample_start_index_for_split(
     split: str, episode_length: int, max_steps: int
 ) -> int:

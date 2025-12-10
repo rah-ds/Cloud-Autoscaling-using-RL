@@ -1,10 +1,10 @@
 # Fdb version 4
-["pdflatex"] 1765311533.63091 "/Users/ryan.healy/DS_MSDS/Cloud-Autoscaling-using-RL/docs/final_paper/improved_draft.tex" "improved_draft.pdf" "improved_draft" 1765311534.8428 0
-  "../final_plots/algorithm_comparison.png" 1765302793.51657 92396 31e5c614d1be0dcda2fb31426f2f5888 ""
-  "../final_plots/capacity_vs_demand.png" 1765302793.518 486961 65568846ab990a3baf286ce7a3c9de6a ""
-  "../final_plots/learning_curves.png" 1765302793.52136 295391 2c49d29b394af9d35805cd6b16ede286 ""
-  "../final_plots/sla_violations_by_workload.png" 1765302793.52818 270599 e6252667809737608a079ed70c1fb088 ""
-  "/Users/ryan.healy/DS_MSDS/Cloud-Autoscaling-using-RL/docs/final_paper/improved_draft.tex" 1765311533.47015 38959 386bbe976b63416060461f9e4faab2ab ""
+["pdflatex"] 1765369708.43924 "/Users/ryan.healy/DS_MSDS/Cloud-Autoscaling-using-RL/docs/final_paper/improved_draft.tex" "improved_draft.pdf" "improved_draft" 1765369709.81165 0
+  "../final_plots/algorithm_comparison.png" 1765313176.58623 92396 31e5c614d1be0dcda2fb31426f2f5888 ""
+  "../final_plots/capacity_vs_demand.png" 1765313176.58781 486961 65568846ab990a3baf286ce7a3c9de6a ""
+  "../final_plots/learning_curves.png" 1765313176.58914 295391 2c49d29b394af9d35805cd6b16ede286 ""
+  "../final_plots/sla_violations_by_workload.png" 1765313176.59282 270599 e6252667809737608a079ed70c1fb088 ""
+  "/Users/ryan.healy/DS_MSDS/Cloud-Autoscaling-using-RL/docs/final_paper/improved_draft.tex" 1765369706.99231 32452 f3d9891c0a0ce40d0280ad9bece0d3f4 ""
   "/opt/homebrew/Cellar/texlive/20250308_1/share/texmf-dist/fonts/enc/dvips/base/8r.enc" 1741388039 4850 80dc9bab7f31fb78a000ccfed0e27cab ""
   "/opt/homebrew/Cellar/texlive/20250308_1/share/texmf-dist/fonts/map/fontname/texfonts.map" 1741388039 3524 cb3e574dea2d1052e39280babc910dc8 ""
   "/opt/homebrew/Cellar/texlive/20250308_1/share/texmf-dist/fonts/map/pdftex/updmap/pdftex.map" 1741388039 5466553 2748998d7db8078826afa1f272036265 ""
@@ -201,9 +201,9 @@
   "/opt/homebrew/Cellar/texlive/20250308_1/share/texmf-dist/tex/latex/xcolor/xcolor.sty" 1741388039 55384 b454dec21c2d9f45ec0b793f0995b992 ""
   "/opt/homebrew/Cellar/texlive/20250308_1/share/texmf-dist/web2c/texmf.cnf" 1741388039 42151 79f67285bdd95beca4d137b380b4b9e5 ""
   "/opt/homebrew/Cellar/texlive/20250308_1/share/texmf-var/web2c/pdftex/pdflatex.fmt" 1741388039 3346141 1288109d02d1c772df65535881471649 ""
-  "improved_draft.aux" 1765311534.78312 10708 c8709f067e1ace64ee61d7e5a74ff601 "pdflatex"
-  "improved_draft.out" 1765311534.78406 7134 df2b4666e0b2f609825318fda2f25831 "pdflatex"
-  "improved_draft.tex" 1765311533.47015 38959 386bbe976b63416060461f9e4faab2ab ""
+  "improved_draft.aux" 1765369709.7498 11210 40130e7de59dcf37897c1877442a6c61 "pdflatex"
+  "improved_draft.out" 1765369709.75072 7081 e883e982ff30c6aedfd39921e3898d76 "pdflatex"
+  "improved_draft.tex" 1765369706.99231 32452 f3d9891c0a0ce40d0280ad9bece0d3f4 ""
   (generated)
   "improved_draft.aux"
   "improved_draft.log"
